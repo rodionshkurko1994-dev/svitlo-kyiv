@@ -15,7 +15,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: crawl-full
+  group: crawl-full-${{ github.event.inputs.batch }}
   cancel-in-progress: false
 
 jobs:
@@ -25,19 +25,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Crawl batch ${{ github.event.inputs.batch }}
+        id: crawl
         run: |
           B="${{ github.event.inputs.batch }}"
-          python3 scripts/crawl_groups.py "data/full/batch_$B.json" "data/full/groups_$B.json" --cache=data/full/streets_cache.json
+          if [ -f "data/full/groups_$B.json" ]; then echo "::notice::batch $B already done"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          python3 scripts/crawl_groups.py "data/full/batch_$B.json" "data/full/groups_$B.json" --cache=data/full/streets_cache_$B.json
       - name: Commit results
+        if: steps.crawl.outputs.skip != '1'
         run: |
           B="${{ github.event.inputs.batch }}"
           git config user.name "svitlo-kyiv bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "data/full/groups_$B.json" data/full/streets_cache.json
+          git add "data/full/groups_$B.json" "data/full/streets_cache_$B.json"
           git commit -m "Обхід адрес YASNO: частина $B" || true
           for i in 1 2 3 4 5; do git pull --rebase -q && git push && break; sleep 10; done
       - name: Start next batch
-        if: github.event.inputs.chain == 'yes'
+        if: github.event.inputs.chain == 'yes' && steps.crawl.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

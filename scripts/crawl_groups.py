@@ -12,8 +12,11 @@ import json, re, sys, time, urllib.parse, urllib.request, collections
 
 BASE = "https://app.yasno.ua/api/blackout-service/public/shutdowns/addresses/v2/"
 COMMON = {"regionId": "25", "dsoId": "902"}
-DELAY = 0.8  # seconds between requests
+DELAY = 0.6  # seconds between requests
 UA = "Mozilla/5.0 (svitlo-kyiv map; +https://svitlo-kyiv.online)"
+
+class FetchError(Exception):
+    pass
 
 stats = collections.Counter()
 DEBUG = "--debug" in sys.argv
@@ -34,7 +37,7 @@ def get(path, **params):
                 return None
         except Exception:
             stats["net_errors"] += 1
-    return None
+    raise FetchError()
 
 TYPES = [
     (r"\bвулиця\b|\bвул\b", "вул"), (r"\bпроспект\b|\bпросп\b|\bпр-т\b", "просп"),
@@ -144,12 +147,13 @@ def house_id(sid, house):
     return None, None
 
 def load_cache(path):
+    import glob, os
     if path:
-        try:
-            c = json.load(open(path))
-            street_cache.update({k: v for k, v in c.items()})
-        except FileNotFoundError:
-            pass
+        for f in glob.glob(os.path.join(os.path.dirname(path), "streets_cache*.json")):
+            try:
+                street_cache.update(json.load(open(f)))
+            except Exception:
+                pass
 
 def save_cache(path):
     if path:
@@ -162,15 +166,26 @@ def main(inp, outp, cache=None):
     out = []
     for i, a in enumerate(rows):
         rec = dict(a)
-        sid = street_id(a["street"])
+        try:
+            sid = street_id(a["street"])
+        except FetchError:
+            rec["status"] = "fetch_error"; stats["fetch_error"] += 1; out.append(rec); continue
         if sid is None:
             rec["status"] = "street_not_found"
         else:
-            hid, exact = house_id(sid, a["house"])
-            if hid is None:
+            try:
+                hid, exact = house_id(sid, a["house"])
+            except FetchError:
+                hid, exact = None, "err"
+            if exact == "err":
+                rec["status"] = "fetch_error"
+            elif hid is None:
                 rec["status"] = "house_not_found"
             else:
-                g = get("group", streetId=sid, houseId=hid)
+                try:
+                    g = get("group", streetId=sid, houseId=hid)
+                except FetchError:
+                    g = None
                 if g and "group" in g:
                     rec.update(status="ok", group=g["group"], subgroup=g.get("subgroup"), streetId=sid, houseId=hid, exact=exact)
                 else:
