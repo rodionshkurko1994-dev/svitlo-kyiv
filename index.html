@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="3D-карта Києва: де зараз є світло, а де ні, за графіками відключень YASNO. Прогноз на 48 годин.">
+<meta property="og:title" content="Світло Києва">
+<meta property="og:description" content="3D-карта Києва: де зараз є світло, а де ні, за графіками відключень YASNO.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#070b17">
+<style>*,*::before,*::after{box-sizing:border-box}html{color-scheme:dark}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Світло Києва 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: full-bleed night-city canvas; a compact instrument panel top-left, a 48-hour time dial along the bottom. Single dark look by choice: the map is a night view. */
+:root{
+  --night:#070b17;
+  --panel:rgba(10,15,32,.86);
+  --line:rgba(150,170,230,.18);
+  --ink:#e8ecf8;
+  --muted:#8e98b8;
+  --on:#ff9636;
+  --on-soft:rgba(255,150,54,.16);
+  --off:#2a3f8f;
+  --off-ink:#8fa6ff;
+  --warn:#ffcf5a;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--night);color:var(--ink);font-family:var(--f-body);overflow:hidden}
+#scene{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
+.panel{z-index:2;position:fixed;left:16px;top:calc(16px + env(safe-area-inset-top,0px));width:min(340px,calc(100% - 32px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:12px;max-height:calc(100% - 170px);overflow:auto}
+h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.01em;line-height:1.15;text-wrap:balance}
+.clock{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.clock b{font-family:var(--f-mono);font-size:30px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.clock span{color:var(--muted);font-size:13px}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.tag.live{color:var(--on);border-color:rgba(255,150,54,.45)}
+.tag.plan{color:var(--off-ink);border-color:rgba(143,166,255,.4)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.stat .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+.stat .v{font-family:var(--f-mono);font-size:22px;font-variant-numeric:tabular-nums}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.sw.on{background:var(--on);box-shadow:0 0 8px var(--on)}
+.sw.off{background:var(--off)}
+.bar{height:6px;border-radius:3px;background:var(--off);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--on);transition:width .4s}
+.note{font-size:12.5px;line-height:1.5;color:var(--muted);margin:0}
+.note strong{color:var(--ink);font-weight:500}
+.banner{font-size:12.5px;line-height:1.45;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,207,90,.45);color:var(--warn);background:rgba(255,207,90,.07)}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-size:13px;font-weight:500;color:var(--ink);list-style:none;display:flex;justify-content:space-between}
+summary::after{content:"+";color:var(--muted)}
+details[open]>summary::after{content:"−"}
+summary:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--on);outline-offset:2px;border-radius:4px}
+details .note{margin-top:8px}
+.note a{color:var(--on)}
+.dock{z-index:2;position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px 14px;backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:6px}
+.dock-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.dock-top .lbl{font-size:12px;color:var(--muted)}
+.dock-top .lbl b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+.btns{display:flex;gap:6px}
+button{font:inherit;font-size:12.5px;font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--on);color:var(--on)}
+button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
+.track{position:relative;height:30px}
+#strip{position:absolute;left:0;right:0;top:4px;height:10px;border-radius:3px;width:100%}
+#t{position:absolute;left:0;right:0;top:0;width:100%;height:30px;margin:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:pointer}
+#t::-webkit-slider-runnable-track{height:30px;background:transparent}
+#t::-moz-range-track{height:30px;background:transparent}
+#t::-webkit-slider-thumb{-webkit-appearance:none;width:4px;height:24px;margin-top:0;background:var(--ink);border-radius:2px;box-shadow:0 0 0 3px rgba(7,11,23,.8)}
+#t::-moz-range-thumb{width:4px;height:24px;background:var(--ink);border:0;border-radius:2px}
+.ticks{position:absolute;left:0;right:0;top:18px;height:12px;font-family:var(--f-mono);font-size:10px;color:var(--muted);pointer-events:none}
+.ticks span{position:absolute;transform:translateX(-50%)}
+.tip{position:fixed;pointer-events:none;background:rgba(6,9,20,.95);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.45;max-width:260px;z-index:5}
+.tip .st{font-weight:600}
+.tip .st.on{color:var(--on)}
+.tip .st.off{color:var(--off-ink)}
+.tip .m{color:var(--muted)}
+.compass{z-index:2;position:fixed;right:16px;top:calc(16px + env(safe-area-inset-top,0px));font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.6;pointer-events:none}
+@media (max-width:640px){
+  .panel{max-height:44%;padding:12px 14px;gap:9px}
+  h1{font-size:16px}
+  .clock b{font-size:24px}
+  .stat .v{font-size:18px}
+  .compass{display:none}
+  .hide-sm{display:none}
+}
+[hidden]{display:none!important}
+.labels{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:1}
+.dlabel{position:absolute;left:0;top:0;white-space:nowrap;font-family:var(--f-body);font-weight:400;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(232,236,248,.82);text-shadow:0 0 6px rgba(6,9,18,.95),0 0 2px rgba(6,9,18,.9);padding-bottom:4px;will-change:transform}
+@media (max-width:640px){.dlabel{font-size:10.5px;letter-spacing:.12em}}
+.more{border-top:0;padding-top:0}
+.more>summary{display:none}
+.more-body{display:flex;flex-direction:column;gap:12px}
+@media (max-width:640px){
+  .more{border-top:1px solid var(--line);padding-top:8px}
+  .more>summary{display:flex;font-size:12.5px;color:var(--muted)}
+  .more-body{gap:9px;margin-top:8px}
+}
+.loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:4}
+.loader div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:8px;min-width:220px}
+.loader .lb{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.loader .lb i{display:block;height:100%;width:0;background:var(--on)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw.na{background:#3b4260}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+
+
+<canvas id="scene" aria-label="3D-карта Києва: будинки зі світлом помаранчеві, без світла темно-сині"></canvas>
+
+<section class="panel" aria-live="polite">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+    <h1>Світло Києва</h1>
+    <span class="tag plan" id="modeTag">графік</span>
+  </div>
+  <div class="clock"><b id="clk">--:--</b><span id="day">—</span></div>
+  <div class="split">
+    <div class="stat"><span class="k"><i class="sw on"></i>Світло є</span><span class="v" id="nOn">—</span></div>
+    <div class="stat"><span class="k"><i class="sw off"></i>Без світла</span><span class="v" id="nOff">—</span></div>
+  </div>
+  <div class="bar" aria-hidden="true"><i id="share" style="width:0%"></i></div>
+  <div class="banner" id="banner" hidden></div>
+  <details class="more" id="more">
+  <summary>Деталі</summary>
+  <div class="more-body">
+  <div class="legend"><span><i class="sw na"></i>немає даних про групу</span></div>
+  <p class="note" id="fresh">Графік YASNO: завантаження…</p>
+  <details>
+    <summary>Як читати карту</summary>
+    <p class="note"><strong>Це наближення.</strong> Карта показує планові графіки відключень YASNO (ДТЕК), а не фактичний стан мережі. Під час аварійних відключень графіки не діють.</p>
+    <p class="note">YASNO повертає групу лише для конкретного будинку, тому я опитав <span id="nSamples">62</span> опорні адреси по місту. Кожен будинок отримує групу найближчої опорної адреси в радіусі 2,6 км. Сусідні будинки часто мають ту саму групу, але не завжди. Перевірити свій будинок можна на <a href="https://yasno.ua" target="_blank" rel="noopener">yasno.ua</a>.</p>
+    <p class="note">Будинки, вулиці, вода й парки взяті з OpenStreetMap (© учасники OpenStreetMap, ODbL). Висоти будинків розраховані за поверховістю. Якщо її в OSM немає, висота оцінена за типом будівлі.</p>
+  </details>
+  </div>
+  </details>
+</section>
+
+<div class="compass" aria-hidden="true">Пн ↑<br><span class="hide-sm">тягніть — обертання<br>правою — зсув · колесо — масштаб</span></div>
+
+<section class="dock">
+  <div class="dock-top">
+    <span class="lbl">Час на карті: <b id="tLbl">—</b></span>
+    <div class="btns">
+      <button type="button" id="nowBtn" class="active">Зараз</button>
+      <button type="button" id="plus1">+1 год</button>
+      <button type="button" id="plus3">+3 год</button>
+    </div>
+  </div>
+  <div class="track">
+    <canvas id="strip" height="10"></canvas>
+    <input type="range" id="t" min="0" max="2879" step="15" value="0" aria-label="Час на карті">
+    <div class="ticks" id="ticks"></div>
+  </div>
+</section>
+
+<div class="labels" id="labels" aria-hidden="true"></div>
+<div class="loader" id="loader"><div><span id="loadTxt">Завантажую карту міста…</span><span class="lb"><i id="loadBar"></i></span></div></div>
+<div class="tip" id="tip" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const META = {"header":{"zone":[0,111881],"height":[111884,223762],"ringCount":[335648,111881],"ringLen":[447532,224872],"coords":[672404,2612900],"roadRank":[3285304,23831],"roadLen":[3309136,47662],"roadCoords":[3356800,387640],"water":[3744440,487548],"parks":[4231988,931164],"ground":[5163152,3552]},"samples":[{"addr":"Оболонський просп., 1","area":"Оболонь","group":3,"lat":50.5125,"lon":30.499,"x":-1489,"z":-6911},{"addr":"Оболонський просп., 40","area":"Оболонь","group":4,"lat":50.521151464703756,"lon":30.49999180124623,"x":-1418,"z":-7867},{"addr":"просп. Степана Бандери, 23","area":"Почайна","group":10,"lat":50.49005221850612,"lon":30.496907580950797,"x":-1637,"z":-4429},{"addr":"вул. Вишгородська, 45","area":"Куренівка","group":4,"lat":50.495,"lon":30.472,"x":-3402,"z":-4976},{"addr":"вул. Кирилівська, 69","area":"Поділ-північ","group":17,"lat":50.47597489294295,"lon":30.487941197278264,"x":-2272,"z":-2872},{"addr":"вул. Сагайдачного, 25","area":"Поділ","group":14,"lat":50.46024665124104,"lon":30.522649451322113,"x":188,"z":-1133},{"addr":"вул. Хрещатик, 6","area":"Центр","group":20,"lat":50.45219791072938,"lon":30.52627896699649,"x":445,"z":-243},{"addr":"вул. Велика Житомирська, 20","area":"Старий Київ","group":20,"lat":50.45565524910966,"lon":30.512550865143993,"x":-528,"z":-625},{"addr":"вул. Січових Стрільців, 50","area":"Лук'янівка","group":21,"lat":50.45661400015444,"lon":30.492083895977014,"x":-1979,"z":-731},{"addr":"вул. Олени Теліги, 13","area":"Сирець","group":18,"lat":50.475,"lon":30.45,"x":-4962,"z":-2764},{"addr":"просп. Берестейський, 37","area":"Шулявка","group":14,"lat":50.448757647576215,"lon":30.46237308352814,"x":-4085,"z":137},{"addr":"просп. Берестейський, 94/1","area":"Нивки","group":22,"lat":50.45904529354813,"lon":30.398940650981743,"x":-8581,"z":-1000},{"addr":"просп. Любомира Гузара, 3","area":"Святошин","group":15,"lat":50.43594415220769,"lon":30.41254225292001,"x":-7617,"z":1554},{"addr":"вул. Симиренка, 5","area":"Борщагівка","group":36,"lat":50.41262200470199,"lon":30.39717017288191,"x":-8707,"z":4133},{"addr":"просп. Валерія Лобановського, 6А","area":"Чоколівка","group":18,"lat":50.42257304450024,"lon":30.465298751109053,"x":-3877,"z":3033},{"addr":"вул. Велика Васильківська, 100","area":"Палац «Україна»","group":31,"lat":50.4265414523604,"lon":30.515484836131698,"x":-320,"z":2594},{"addr":"вул. Велика Васильківська, 136","area":"Либідська","group":31,"lat":50.413963490430234,"lon":30.52376408488549,"x":267,"z":3985},{"addr":"вул. Михайла Бойчука, 12","area":"Звіринець","group":19,"lat":50.4147965348753,"lon":30.54849892456933,"x":2020,"z":3892},{"addr":"просп. Голосіївський, 60","area":"Голосіїв","group":33,"lat":50.40153271321181,"lon":30.511801772042766,"x":-581,"z":5359},{"addr":"просп. Академіка Глушкова, 1","area":"ВДНГ","group":29,"lat":50.38058456623005,"lon":30.482028671296323,"x":-2692,"z":7675},{"addr":"вул. Академіка Заболотного, 20","area":"Теремки","group":29,"lat":50.366507322707164,"lon":30.461404003843885,"x":-4153,"z":9232},{"addr":"вул. Антоновича, 50","area":"Олімпійська","group":31,"lat":50.431732230098234,"lon":30.51133131708081,"x":-614,"z":2020},{"addr":"просп. Броварський, 25","area":"Лівобережна","group":49,"lat":50.45345881569335,"lon":30.599522184207846,"x":5637,"z":-382},{"addr":"наб. Русанівська, 10","area":"Русанівка","group":59,"lat":50.439793814445494,"lon":30.59239301914104,"x":5131,"z":1128},{"addr":"просп. Бажана, 10","area":"Позняки","group":37,"lat":50.39477010510284,"lon":30.61925770429892,"x":7036,"z":6107},{"addr":"просп. Петра Григоренка, 20","area":"Позняки","group":45,"lat":50.410005924414634,"lon":30.626257788641148,"x":7532,"z":4422},{"addr":"вул. Ревуцького, 20","area":"Харківський масив","group":45,"lat":50.41053679821992,"lon":30.64586057080919,"x":8921,"z":4363},{"addr":"шосе Харківське, 150/15","area":"Харківська","group":45,"lat":50.41923537377404,"lon":30.65395646668862,"x":9495,"z":3402},{"addr":"наб. Дніпровська, 20А","area":"Осокорки","group":45,"lat":50.397250181781196,"lon":30.6134873468367,"x":6627,"z":5833},{"addr":"вул. Бориса Гмирі, 9","area":"Позняки","group":45,"lat":50.392326886768814,"lon":30.62967857246393,"x":7774,"z":6377},{"addr":"просп. Лісовий, 10","area":"Лісовий масив","group":53,"lat":50.47911392386326,"lon":30.62280813513786,"x":7287,"z":-3219},{"addr":"просп. Червоної Калини, 30","area":"Троєщина","group":1,"lat":50.508139747273475,"lon":30.610571494646724,"x":6420,"z":-6429},{"addr":"просп. Соборності, 10/1","area":"Дарниця","group":54,"lat":50.441306628390485,"lon":30.620142047967324,"x":7098,"z":961},{"addr":"вул. Бориспільська, 10","area":"Дарниця","group":57,"lat":50.427968050000004,"lon":30.66719605,"x":10434,"z":2436},{"addr":"вул. Березняківська, 10","area":"Березняки","group":53,"lat":50.43384478290842,"lon":30.612711517584025,"x":6572,"z":1786},{"addr":"просп. Європейського Союзу, 31","area":"Виноградар","group":12,"lat":50.50279778562993,"lon":30.435158669641634,"x":-6014,"z":-5838},{"addr":"просп. Відрадний, 20","area":"Відрадний","group":24,"lat":50.42639006936562,"lon":30.427600240321883,"x":-6550,"z":2611},{"addr":"вул. Малинська, 22","area":"Біличі","group":8,"lat":50.4867,"lon":30.36691,"x":-10852,"z":-4058},{"addr":"вул. Квітки-Основ'яненка, 23А","area":"Деміївка-південь","group":34,"lat":50.37363,"lon":30.53521,"x":1078,"z":8444},{"addr":"вул. Василя Седляра, 12","area":"Совки","group":35,"lat":50.39579,"lon":30.46249,"x":-4076,"z":5994},{"addr":"вул. Пасічна, 7","area":"Бортничі","group":44,"lat":50.38693,"lon":30.68608,"x":11772,"z":6974},{"addr":"вул. Березнева, 30Л","area":"Бортничі","group":44,"lat":50.37312,"lon":30.6813,"x":11433,"z":8501},{"addr":"вул. Христини Сушко, 53","area":"Пущанська/Святошин","group":12,"lat":50.46297,"lon":30.33413,"x":-13175,"z":-1434},{"addr":"вул. Алматинська, 52А","area":"Стара Дарниця","group":49,"lat":50.44522,"lon":30.67138,"x":10730,"z":529},{"addr":"вул. Золочівська, 37/20","area":"Мостицький","group":4,"lat":50.52163,"lon":30.43771,"x":-5833,"z":-7920},{"addr":"вул. Пирогівський шлях, 169","area":"Пирогів","group":37,"lat":50.34669,"lon":30.53595,"x":1131,"z":11423},{"addr":"вул. Промислова, 4А","area":"Корчувате/Видубичі","group":44,"lat":50.39792,"lon":30.56749,"x":3366,"z":5758},{"addr":"вул. Опришківська, 70/13","area":"Соцмісто-схід","group":49,"lat":50.45546,"lon":30.67625,"x":11075,"z":-604},{"addr":"вул. Федора Максименка, 9","area":"Сирець-північ","group":2,"lat":50.53217,"lon":30.35869,"x":-11434,"z":-9086},{"addr":"вул. Юрія Клена, 14","area":"Микільська Борщагівка","group":6,"lat":50.44039,"lon":30.36233,"x":-11176,"z":1063},{"addr":"вул. Івана Їжакевича, 76","area":"Мінський масив","group":4,"lat":50.51661,"lon":30.43291,"x":-6173,"z":-7365},{"addr":"вул. Азербайджанська, 25","area":"Дарницький район","group":6,"lat":50.44336,"lon":30.64903,"x":9146,"z":734},{"addr":"вул. Абрикосова, 14","area":"Жуляни","group":2,"lat":50.36652,"lon":30.43728,"x":-5863,"z":9230},{"addr":"вул. Юрія Кондратюка, 7","area":"Оболонь-захід","group":4,"lat":50.5258,"lon":30.46241,"x":-4082,"z":-8381},{"addr":"вул. Лисогірська, 29","area":"Деміївка","group":34,"lat":50.39014,"lon":30.53806,"x":1280,"z":6619},{"addr":"вул. Сортувальна, 2","area":"Дарниця","group":45,"lat":50.41803,"lon":30.60808,"x":6243,"z":3535},{"addr":"вул. Поліська, 10А","area":"Дарниця-схід","group":49,"lat":50.42095,"lon":30.68822,"x":11924,"z":3212},{"addr":"вул. Справедливості, 13А","area":"Вигурівщина","group":1,"lat":50.52414,"lon":30.58239,"x":4422,"z":-8198},{"addr":"вул. Святослава Хороброго, 23","area":"Батиєва гора","group":28,"lat":50.40813,"lon":30.46072,"x":-4202,"z":4630},{"addr":"вул. Бережанська, 15","area":"Мінський масив","group":4,"lat":50.51369,"lon":30.45972,"x":-4273,"z":-7042},{"addr":"Набережно-Рибальська дорога, 27","area":"Рибальський","group":24,"lat":50.48498,"lon":30.53304,"x":924,"z":-3868},{"addr":"вул. Солов'їна, 53","area":"Феофанія","group":34,"lat":50.35336,"lon":30.51373,"x":-444,"z":10685}],"maxd":2600.0,"nozone":255,"city":[[21802,4931],[21700,5024],[21372,4614],[20598,4343],[20461,4465],[19718,3834],[19577,3579],[19921,3234],[20001,2983],[19831,2766],[19958,2565],[19281,1785],[19132,1893],[18209,1261],[18209,739],[16943,139],[15777,-936],[16634,-1283],[16350,-1571],[16541,-1814],[16415,-1947],[16564,-2102],[16476,-2188],[15697,-2078],[16297,-2694],[16033,-3055],[16211,-3742],[17000,-3710],[16614,-4448],[16239,-4156],[16087,-4640],[15774,-4463],[15429,-5409],[16008,-5872],[16034,-5759],[16337,-5795],[16229,-6039],[16851,-6395],[16817,-6502],[17148,-6527],[17077,-7356],[16858,-7244],[16599,-7367],[16659,-7623],[21502,-9633],[21356,-9802],[21095,-11899],[20851,-12194],[20973,-12725],[19664,-13276],[18704,-14376],[18655,-14092],[17796,-13893],[17487,-14794],[16593,-14737],[14147,-15572],[13983,-15478],[14275,-15023],[13349,-13579],[13532,-13465],[13751,-11682],[12685,-11572],[12577,-12385],[11421,-11697],[10630,-11474],[10212,-11223],[9638,-9607],[9082,-9375],[5237,-9541],[4114,-10011],[2621,-9982],[2337,-9551],[2430,-8910],[2845,-8686],[3404,-7753],[3337,-7362],[2569,-6955],[2241,-7050],[1717,-7961],[1026,-8405],[938,-9237],[732,-9533],[-1197,-10673],[-1702,-11258],[-2076,-13031],[-2568,-13037],[-2492,-13204],[-2722,-13519],[-3926,-13462],[-4033,-14855],[-4118,-14753],[-5188,-15017],[-10563,-15086],[-10587,-13662],[-12814,-13693],[-15075,-13332],[-13681,-12665],[-13777,-12479],[-13352,-12086],[-12647,-11866],[-13362,-11777],[-13329,-11416],[-13490,-11376],[-13278,-11204],[-13508,-11006],[-13751,-11067],[-13719,-10642],[-14828,-11624],[-15513,-11423],[-15734,-11546],[-15773,-11233],[-15366,-10809],[-15466,-10749],[-15276,-10397],[-15430,-9120],[-16112,-9151],[-16303,-8379],[-16909,-7981],[-17452,-7893],[-18147,-7193],[-18417,-6635],[-17704,-5797],[-17715,-5333],[-18053,-4852],[-17971,-4715],[-18238,-4174],[-18892,-4073],[-19021,-3849],[-19163,-2656],[-18725,-2447],[-18576,-2187],[-19245,-1386],[-19814,-227],[-19821,251],[-19378,774],[-19367,1066],[-19666,1246],[-19717,1696],[-20103,2138],[-19692,2410],[-19458,2917],[-19103,2616],[-18785,1988],[-18433,2011],[-17771,2604],[-17245,2161],[-17394,2018],[-17004,1108],[-16917,294],[-14053,846],[-12470,456],[-12604,-293],[-12495,-483],[-12227,-255],[-12107,125],[-11964,61],[-11938,470],[-11476,527],[-11319,1861],[-10612,3249],[-8931,4874],[-7235,5745],[-7213,5926],[-6846,5990],[-6942,6254],[-6670,6502],[-6449,6442],[-5478,7571],[-6360,8639],[-5857,9083],[-5978,9853],[-5819,9960],[-5840,10296],[-4804,10554],[-4613,9967],[-4410,9835],[-3664,9940],[-3739,10118],[-3576,10196],[-3542,10468],[-3683,10774],[-3347,10901],[-3321,11864],[-3217,12189],[-2964,12210],[-2995,12444],[-3193,12524],[-3188,12871],[-2471,12832],[-2470,12596],[-2039,12670],[-1603,12987],[-2232,13621],[-1683,14161],[-769,13693],[-249,14265],[963,14692],[829,16324],[1218,16545],[533,17617],[1869,17586],[1985,18489],[1577,19342],[2404,19978],[2367,20642],[2203,20822],[2338,21135],[3933,21060],[3989,21162],[4693,22623],[5150,26178],[8758,24758],[8287,23733],[8891,23509],[8868,23231],[8058,22452],[7992,21988],[7462,21322],[7540,20666],[6911,20396],[6817,19697],[6382,19139],[6420,18716],[8580,18773],[8939,18149],[8975,17485],[8930,16785],[7850,14929],[7266,13359],[6558,12426],[6822,12174],[6470,11455],[7472,11190],[6593,10201],[6791,9957],[7071,10071],[8202,9691],[8938,9614],[9042,10316],[10964,10126],[11086,10703],[12444,11096],[12529,11361],[13568,10801],[13687,10545],[13719,10159],[13260,9320],[13436,9078],[13813,8978],[13586,8527],[13710,8455],[13580,7897],[13954,7479],[14555,7736],[14807,8090],[14672,8243],[16008,8788],[16745,8542],[18234,8780],[18276,8502],[17973,8382],[18171,7775],[17930,7728],[17973,7525],[18327,7408],[18473,7123],[18474,6856],[18130,6713],[18098,6145],[18231,5996],[19186,5740],[19769,6240],[20820,6452],[21004,6762],[20807,7000],[21334,7084],[21389,5615],[21568,5278],[21785,5310],[21802,4931]]};
+const SEED = {fetchedAt:"2026-10-12T13:58:00Z", raw: {"1.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"2.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"3.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"4.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"5.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"6.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"7.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"8.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"9.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"10.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"11.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"12.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"13.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"14.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"15.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"16.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"17.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"18.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"19.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"20.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"21.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"22.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"23.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"24.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"25.1":{"today":{"slots":[{"start":0,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"26.1":{"today":{"slots":[{"start":0,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"27.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"28.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"29.1":{"today":{"slots":[{"start":0,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"30.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"31.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"32.1":{"today":{"slots":[{"start":0,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"33.1":{"today":{"slots":[{"start":0,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"34.1":{"today":{"slots":[{"start":0,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"35.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"36.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"37.1":{"today":{"slots":[{"start":0,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"38.1":{"today":{"slots":[{"start":0,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"39.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"40.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"41.1":{"today":{"slots":[{"start":0,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"42.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"43.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"44.1":{"today":{"slots":[{"start":0,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"45.1":{"today":{"slots":[{"start":0,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"46.1":{"today":{"slots":[{"start":0,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"47.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"48.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"49.1":{"today":{"slots":[{"start":0,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"50.1":{"today":{"slots":[{"start":0,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"51.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"52.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"53.1":{"today":{"slots":[{"start":0,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"54.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"55.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"56.1":{"today":{"slots":[{"start":0,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"57.1":{"today":{"slots":[{"start":0,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"58.1":{"today":{"slots":[{"start":0,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"59.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"60.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"}}};
+const DISTRICTS = [{"name": "Святошинський", "x": -10581, "z": -1076}, {"name": "Деснянський", "x": 7629, "z": -4851}, {"name": "Солом'янський", "x": -4856, "z": 3210}, {"name": "Подільський", "x": -5957, "z": -4834}, {"name": "Оболонський", "x": -2453, "z": -8641}, {"name": "Шевченківський", "x": -3748, "z": -1361}, {"name": "Дарницький", "x": 9870, "z": 6472}, {"name": "Дніпровський", "x": 6083, "z": -470}, {"name": "Печерський", "x": 1435, "z": 2740}, {"name": "Голосіївський", "x": 101, "z": 7168}];
+const SAMPLES = META.samples, MAXD = META.maxd, NZ = 63;
+
+/* ---------- time helpers (Kyiv local) ---------- */
+const TZ = "Europe/Kyiv";
+function kyivParts(d){
+  const f = new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+  const p = Object.fromEntries(f.formatToParts(d).map(x=>[x.type,x.value]));
+  return {date:`${p.year}-${p.month}-${p.day}`, min:(+p.hour)*60+(+p.minute)};
+}
+function addDays(iso,n){const d=new Date(iso+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+const hhmm = m => String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+const dayName = iso => new Intl.DateTimeFormat("uk-UA",{weekday:"long",day:"numeric",month:"long",timeZone:"UTC"}).format(new Date(iso+"T12:00:00Z"));
+
+/* ---------- schedule ---------- */
+let sched = SEED.raw, schedFetched = SEED.fetchedAt, fromLive = false;
+let baseDate = kyivParts(new Date()).date;
+let tMin = kyivParts(new Date()).min, follow = true;
+function dayEntry(group, date){
+  const g = sched[group+".1"]; if(!g) return null;
+  for (const k of ["today","tomorrow"]) { const e=g[k]; if(e && e.date && e.date.slice(0,10)===date) return e; }
+  return null;
+}
+function stateAt(group, absMin){
+  const date = addDays(baseDate, Math.floor(absMin/1440)), m = absMin%1440;
+  const e = dayEntry(group, date);
+  if(!e) return {state:"unknown"};
+  if(e.status && /Emergency/i.test(e.status)) return {state:"unknown", emergency:true};
+  if(e.status === "WaitingForSchedule") return {state:"unknown"};
+  for(const s of e.slots||[]) if(m>=s.start && m<s.end) return {state: s.type==="Definite" ? "off" : "on"};
+  return {state:"on"};
+}
+function nextChange(group, absMin){
+  const cur = stateAt(group, absMin).state;
+  for(let t=absMin+15; t<2880; t+=15){ const s=stateAt(group,t).state; if(s!==cur) return {at:t, to:s}; }
+  return null;
+}
+function zoneAt(x, z){
+  let best=NZ, bd=1e12;
+  for(let k=0;k<SAMPLES.length;k++){ const dx=SAMPLES[k].x-x, dz=SAMPLES[k].z-z, d=dx*dx+dz*dz; if(d<bd){bd=d;best=k;} }
+  return {zone: bd<=MAXD*MAXD ? best : NZ, dist: Math.sqrt(bd)};
+}
+
+/* ---------- renderer ---------- */
+const $ = id => document.getElementById(id);
+const canvas = $("scene");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:"high-performance"});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.setClearColor(0x060912, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 20, 140000);
+function homeView(){
+  const narrow = innerWidth/innerHeight < 0.8, dist = narrow ? 52000 : 31000;
+  const dir = new THREE.Vector3(-0.16, 0.74, 0.65).normalize();
+  const tgt = new THREE.Vector3(narrow ? 1200 : -1800, 0, narrow ? 1200 : -800);
+  camera.position.copy(tgt).addScaledVector(dir, dist);
+  return tgt;
+}
+const HOME = homeView();
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.target.copy(HOME);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI*0.47; controls.minDistance = 250; controls.maxDistance = 60000;
+controls.screenSpacePanning = false;
+
+/* zone state uniform: 0 = off, 1 = on, 0.5 = no data */
+const uState = { value: new Array(64).fill(0.5) };
+const target = new Array(64).fill(0.5);
+const FOG = `
+  float fogF(vec3 wp){ float d = distance(wp, cameraPosition); return smoothstep(uFogNear, uFogFar, d); }`;
+const common = {
+  uState: uState,
+  uFogNear: { value: 30000 }, uFogFar: { value: 80000 },
+  uFogCol: { value: new THREE.Color(0x060912) },
+  uTime: { value: 0 }
+};
+
+const bMat = new THREE.ShaderMaterial({
+  uniforms: common,
+  extensions: { derivatives: true },
+  vertexShader: `
+    attribute float zone;
+    uniform float uState[64];
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed;
+    void main(){
+      vec4 w = modelMatrix * vec4(position,1.0);
+      vW = w.xyz; vH = position.y;
+      vS = uState[int(zone + 0.5)];
+      vSeed = fract(sin(dot(floor(position.xz/9.0), vec2(12.9898,78.233)))*43758.5453);
+      gl_Position = projectionMatrix * viewMatrix * w;
+    }`,
+  fragmentShader: `
+    uniform float uFogNear, uFogFar; uniform vec3 uFogCol;
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed;
+    ${FOG}
+    void main(){
+      vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
+      if (n.y < 0.0 && abs(n.y) > 0.5) n = -n;
+      float roof = step(0.6, abs(n.y));
+      vec3 L = normalize(vec3(-0.45, 0.75, 0.35));
+      float diff = 0.45 + 0.55 * max(dot(n, L), 0.0);
+      // powered: warm amber walls with lit window bands
+      float floorBand = step(0.42, fract(vH / 3.0)) * (1.0 - roof);
+      float lit = floorBand * step(0.28, vSeed) * step(1.5, vH);
+      vec3 onWall = mix(vec3(0.42,0.17,0.04), vec3(1.0,0.58,0.20), 0.35 + 0.65*diff);
+      vec3 onCol = mix(onWall, vec3(1.0,0.78,0.42), lit*0.75);
+      onCol = mix(onCol, vec3(0.95,0.52,0.18)*diff, roof);
+      // dark: deep navy
+      vec3 offCol = mix(vec3(0.07,0.10,0.26), vec3(0.17,0.25,0.58), diff);
+      offCol = mix(offCol, vec3(0.13,0.19,0.45), roof*0.6);
+      vec3 naCol = mix(vec3(0.12,0.13,0.18), vec3(0.26,0.28,0.36), diff);
+      vec3 c = vS >= 0.5 ? mix(naCol, onCol, (vS-0.5)*2.0) : mix(offCol, naCol, vS*2.0);
+      gl_FragColor = vec4(mix(c, uFogCol, fogF(vW)), 1.0);
+    }`
+});
+
+const roadMat = new THREE.ShaderMaterial({
+  uniforms: common,
+  transparent: true, depthWrite: false,
+  vertexShader: `
+    attribute float zone; attribute float rank;
+    uniform float uState[64];
+    varying vec3 vW; varying float vS; varying float vR;
+    void main(){
+      vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vR = rank;
+      vS = uState[int(zone + 0.5)];
+      gl_Position = projectionMatrix * viewMatrix * w;
+    }`,
+  fragmentShader: `
+    uniform float uFogNear, uFogFar; uniform vec3 uFogCol;
+    varying vec3 vW; varying float vS; varying float vR;
+    ${FOG}
+    void main(){
+      float major = vR < 1.5 ? 1.0 : (vR < 2.5 ? 0.6 : 0.35);
+      vec3 lit = vec3(1.0, 0.70, 0.36) * (0.45 + 0.55*major);
+      vec3 dark = vec3(0.20, 0.27, 0.52) * (0.55 + 0.45*major);
+      vec3 na = vec3(0.30, 0.32, 0.40) * (0.55 + 0.45*major);
+      vec3 c = vS > 0.5 ? mix(na, lit, (vS-0.5)*2.0) : mix(dark, na, vS*2.0);
+      if (vR > 8.5) c = vec3(0.32,0.30,0.42);
+      float a = (0.35 + 0.55*major) * (1.0 - fogF(vW));
+      gl_FragColor = vec4(c, a);
+    }`
+});
+
+function flatMat(hex, y){
+  return new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uCol: { value: new THREE.Color(hex) } }, common),
+    vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+    fragmentShader: `uniform vec3 uCol; uniform float uFogNear, uFogFar; uniform vec3 uFogCol; varying vec3 vW; ${FOG}
+      void main(){ gl_FragColor = vec4(mix(uCol, uFogCol, fogF(vW)), 1.0); }`,
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: y
+  });
+}
+function triMesh(arr, hex, y){
+  const pos = new Float32Array(arr.length/2*3);
+  for(let i=0,j=0;i<arr.length;i+=2,j+=3){ pos[j]=arr[i]; pos[j+1]=y; pos[j+2]=arr[i+1]; }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos,3));
+  const m = new THREE.Mesh(g, flatMat(hex, -y)); m.frustumCulled=false; scene.add(m); return m;
+}
+
+/* ---------- load city model ---------- */
+function b64ToBuf(src){   // base64 ASCII bytes -> ArrayBuffer
+  const L = new Uint8Array(128); const A="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  for(let i=0;i<64;i++) L[A.charCodeAt(i)]=i;
+  let n=src.length; while(n && (src[n-1]===61 || src[n-1]<43)) n--;
+  const out = new Uint8Array(Math.floor(n*3/4)); let o=0, i=0;
+  for(; i+4<=n; i+=4){ const v=(L[src[i]]<<18)|(L[src[i+1]]<<12)|(L[src[i+2]]<<6)|L[src[i+3]]; out[o++]=v>>16; out[o++]=(v>>8)&255; out[o++]=v&255; }
+  const r=n-i; if(r>=2){ const v=(L[src[i]]<<18)|(L[src[i+1]]<<12)|(r>2?(L[src[i+2]]<<6):0); out[o++]=v>>16; if(r>2) out[o++]=(v>>8)&255; }
+  return out.buffer;
+}
+let zoneArr = null, bCount = 0, zoneBuildings = new Array(64).fill(0);
+async function loadCity(){
+  const res = await fetch("kyiv3d.txt");
+  if(!res.ok) throw new Error("data " + res.status);
+  const total = 6888940;
+  const reader = res.body ? res.body.getReader() : null;
+  let buf;
+  if(reader){
+    const chunks=[]; let got=0;
+    for(;;){ const {done,value}=await reader.read(); if(done) break; chunks.push(value); got+=value.length; $("loadBar").style.width=Math.min(60, got/total*60)+"%"; }
+    const all = new Uint8Array(got); let o=0; for(const c of chunks){ all.set(c,o); o+=c.length; }
+    buf = b64ToBuf(all);
+  } else buf = b64ToBuf(new Uint8Array(await res.arrayBuffer()));
+  const H = META.header, view = (name, T) => new T(buf, H[name][0], H[name][1]/T.BYTES_PER_ELEMENT);
+  const zone = view("zone",Uint8Array), height = view("height",Uint16Array), rc = view("ringCount",Uint8Array),
+        rl = view("ringLen",Uint16Array), co = view("coords",Int16Array);
+  bCount = zone.length; zoneArr = zone;
+  for(let i=0;i<bCount;i++){ const z = zone[i]===255?NZ:zone[i]; zoneBuildings[z]++; }
+
+  // ground, water, parks
+  triMesh(view("ground",Int16Array), 0x0c1122, 0);
+  triMesh(view("parks",Int16Array), 0x0c1a17, 0.3);
+  triMesh(view("water",Int16Array), 0x0a1b38, 0.6);
+  $("loadTxt").textContent = "Будую 3D-квартали…";
+
+  // count verts / indices
+  let V=0, I=0, ri=0, pi=0;
+  for(let b=0;b<bCount;b++){
+    let ptsB=0; for(let r=0;r<rc[b];r++){ const n=rl[ri+r]; ptsB+=n; I+=n*6; } ri+=rc[b];
+    V += ptsB*2; I += (ptsB)*3;   // roof upper bound
+  }
+  const pos = new Float32Array(V*3), zat = new Uint8Array(V), idx = new Uint32Array(I);
+  let v=0, ii=0; ri=0; pi=0;
+  const t0 = performance.now();
+  for(let b=0;b<bCount;b++){
+    const h = height[b]/10, z = zone[b]===255?NZ:zone[b];
+    const contour=[], holes=[]; const base=v; let topStart=[];
+    for(let r=0;r<rc[b];r++){
+      const n = rl[ri+r], ring=[]; const rStart=v;
+      for(let k=0;k<n;k++){
+        const x=co[pi*2], y=co[pi*2+1]; pi++;
+        pos[v*3]=x; pos[v*3+1]=0; pos[v*3+2]=y; zat[v]=z;
+        pos[v*3+3]=x; pos[v*3+4]=h; pos[v*3+5]=y; zat[v+1]=z;
+        ring.push(new THREE.Vector2(x,y)); v+=2;
+      }
+      for(let k=0;k<n;k++){
+        const a=rStart+k*2, c=rStart+((k+1)%n)*2;
+        idx[ii++]=a; idx[ii++]=c; idx[ii++]=c+1; idx[ii++]=a; idx[ii++]=c+1; idx[ii++]=a+1;
+      }
+      if(r===0) contour.push(...ring); else holes.push(ring);
+      topStart.push(rStart);
+    }
+    ri+=rc[b];
+    // roof
+    let faces; try{ faces = THREE.ShapeUtils.triangulateShape(contour, holes); }catch(e){ faces=[]; }
+    const map=[]; topStart.forEach((s,r)=>{ const n = r===0?contour.length:holes[r-1].length; for(let k=0;k<n;k++) map.push(s+k*2+1); });
+    for(const f of faces){ idx[ii++]=map[f[0]]; idx[ii++]=map[f[1]]; idx[ii++]=map[f[2]]; }
+    if((b & 4095)===0){ $("loadBar").style.width = (60 + b/bCount*38)+"%"; await new Promise(r=>setTimeout(r,0)); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos,3));
+  g.setAttribute("zone", new THREE.BufferAttribute(zat,1));
+  g.setIndex(new THREE.BufferAttribute(idx.subarray(0,ii),1));
+  const mesh = new THREE.Mesh(g, bMat); mesh.frustumCulled=false; scene.add(mesh);
+
+  // roads
+  const rr = view("roadRank",Uint8Array), rlen = view("roadLen",Uint16Array), rco = view("roadCoords",Int16Array);
+  let segs=0; for(let i=0;i<rlen.length;i++) segs+=rlen[i]-1;
+  const rp = new Float32Array(segs*6), rz = new Uint8Array(segs*2), rk = new Uint8Array(segs*2);
+  let p=0, s=0, zc=new Map();
+  const zKey=(x,y)=>{ const k=((x>>7)+512)*2048+((y>>7)+512); let zz=zc.get(k); if(zz===undefined){ zz=zoneAt(x,y).zone; zc.set(k,zz);} return zz; };
+  for(let i=0;i<rlen.length;i++){
+    const n=rlen[i], rank=rr[i];
+    for(let k=0;k<n-1;k++){
+      const x0=rco[(p+k)*2], y0=rco[(p+k)*2+1], x1=rco[(p+k+1)*2], y1=rco[(p+k+1)*2+1];
+      rp.set([x0,1.5,y0,x1,1.5,y1], s*6);
+      rz[s*2]=zKey(x0,y0); rz[s*2+1]=zKey(x1,y1); rk[s*2]=rk[s*2+1]=rank; s++;
+    }
+    p+=n;
+  }
+  const rg = new THREE.BufferGeometry();
+  rg.setAttribute("position", new THREE.BufferAttribute(rp,3));
+  rg.setAttribute("zone", new THREE.BufferAttribute(rz,1));
+  rg.setAttribute("rank", new THREE.BufferAttribute(rk,1));
+  const roads = new THREE.LineSegments(rg, roadMat); roads.frustumCulled=false; roads.renderOrder=2; scene.add(roads);
+
+  // city outline
+  const cpts = META.city.map(q=>new THREE.Vector3(q[0],2,q[1]));
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cpts), new THREE.LineBasicMaterial({color:0x34427a, transparent:true, opacity:.8})));
+
+  $("loader").hidden = true;
+  console.log("city built", bCount, "buildings", (performance.now()-t0|0)+"ms", "tris", ii/3|0);
+}
+
+/* ---------- apply state ---------- */
+function apply(){
+  let on=0, off=0, unk=0, emergency=false;
+  const per = {};
+  SAMPLES.forEach((s,k)=>{ if(!(s.group in per)) per[s.group]=stateAt(s.group,tMin); const st=per[s.group];
+    if(st.emergency) emergency=true;
+    target[k] = st.state==="on"?1:st.state==="off"?0:0.5;
+    const n = zoneBuildings[k]; st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; });
+  target[NZ]=0.5; unk += zoneBuildings[NZ];
+  const known = on+off || 1;
+  $("nOn").textContent = Math.round(on/known*100)+"%";
+  $("nOff").textContent = Math.round(off/known*100)+"%";
+  $("share").style.width = (on/known*100)+"%";
+  const date = addDays(baseDate, Math.floor(tMin/1440));
+  $("clk").textContent = hhmm(tMin%1440);
+  $("day").textContent = dayName(date);
+  $("tLbl").textContent = (follow ? "зараз, " : "") + hhmm(tMin%1440) + (tMin>=1440 ? " завтра" : "");
+  const ban = $("banner");
+  if (emergency){ ban.hidden=false; ban.textContent="YASNO повідомляє про екстрені відключення: планові графіки зараз не діють, тож карта не показує реальний стан."; }
+  else if (!on && !off){ ban.hidden=false; ban.textContent = "Графік на цей час ще не опубліковано."; }
+  else ban.hidden=true;
+  animate = true;
+}
+
+/* 48h strip: share of buildings with power at each 15-min step */
+function drawStrip(){
+  const cv=$("strip"), w=cv.clientWidth|0; if(!w) return; cv.width=w;
+  const ctx=cv.getContext("2d"); ctx.clearRect(0,0,w,10);
+  const byGroup={}; SAMPLES.forEach((s,k)=>{ byGroup[s.group]=(byGroup[s.group]||0)+(zoneBuildings[k]||1); });
+  for(let t=0;t<2880;t+=15){
+    let on=0, off=0;
+    for(const g in byGroup){ const s=stateAt(+g,t).state; if(s==="on") on+=byGroup[g]; else if(s==="off") off+=byGroup[g]; }
+    const tot=on+off, x0=t/2880*w, x1=(t+15)/2880*w;
+    if(!tot) ctx.fillStyle="#1c2238"; else { const a=on/tot; ctx.fillStyle=`rgb(${Math.round(42+(255-42)*a)},${Math.round(63+(150-63)*a)},${Math.round(143+(54-143)*a)})`; }
+    ctx.fillRect(x0,0,Math.ceil(x1-x0)+0.5,10);
+  }
+  ctx.fillStyle="rgba(232,236,248,.9)"; ctx.fillRect(w/2-0.5,0,1,10);
+  const nowX = absNow()/2880*w; ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(nowX,5,2.5,0,7); ctx.fill();
+}
+function drawTicks(){
+  const el=$("ticks"); el.innerHTML="";
+  [0,360,720,1080,1440,1800,2160,2520].forEach(t=>{ const s=document.createElement("span"); s.style.left=(t/2880*100)+"%"; s.textContent = t===1440 ? "завтра" : hhmm(t%1440); if(t===0) s.style.transform="none"; if(t%720) s.className="hide-sm"; el.appendChild(s); });
+}
+function absNow(){ const k=kyivParts(new Date()); return (k.date===baseDate?0:1440) + k.min; }
+
+/* ---------- controls ---------- */
+const slider=$("t");
+function setT(v, f=false){ tMin=Math.max(0,Math.min(2879,v)); follow=f; slider.value=tMin; $("nowBtn").classList.toggle("active",f); apply(); }
+slider.addEventListener("input", ()=> setT(+slider.value, false));
+$("nowBtn").onclick = ()=> setT(absNow(), true);
+$("plus1").onclick = ()=> setT(absNow()+60, false);
+$("plus3").onclick = ()=> setT(absNow()+180, false);
+setInterval(()=>{
+  const k=kyivParts(new Date());
+  if(k.date!==baseDate && follow){ baseDate=k.date; drawTicks(); }
+  if(follow){ tMin=absNow(); slider.value=tMin; apply(); }
+  drawStrip();
+}, 30000);
+
+function showFresh(){
+  const up = Object.values(sched)[0]?.updatedOn;
+  const fmt = iso => new Intl.DateTimeFormat("uk-UA",{timeZone:TZ,day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(iso));
+  $("fresh").innerHTML = `Графік YASNO оновлено <strong>${up?fmt(up):"—"}</strong>, отримано ${fmt(schedFetched)}.` + (fromLive?"":" Показано збережену копію.");
+  const tag=$("modeTag"); tag.textContent = fromLive ? "живі дані" : "копія"; tag.className = "tag " + (fromLive ? "live" : "plan");
+}
+/* live schedule: schedule.json is republished next to the page by an hourly task */
+async function pullSchedule(){
+  try{
+    const r = await fetch("schedule.json?t=" + Math.floor(Date.now()/300000), {cache:"no-store"});
+    if(!r.ok) return;
+    const d = await r.json();
+    const raw = d && d.raw;
+    if(raw && typeof raw==="object" && raw["1.1"] && (!fromLive || d.fetchedAt !== schedFetched)){
+      sched = raw; schedFetched = d.fetchedAt || schedFetched; fromLive = true;
+      showFresh(); apply(); drawStrip();
+    }
+  }catch(e){}
+}
+pullSchedule(); setInterval(pullSchedule, 5*60*1000);
+
+/* ---------- hover / tap: ground point -> quarter ---------- */
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(), tip=$("tip"), plane=new THREE.Plane(new THREE.Vector3(0,1,0),-10), hit=new THREE.Vector3();
+function pick(ev){
+  const r=canvas.getBoundingClientRect(); mouse.set(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(mouse,camera);
+  if(!ray.ray.intersectPlane(plane, hit)){ tip.hidden=true; return; }
+  const {zone, dist} = zoneAt(hit.x, hit.z);
+  let html;
+  if(zone===NZ){ html = `<div class="st">Немає даних</div><div class="m">Найближча опорна адреса далі ніж ${(MAXD/1000).toFixed(1).replace(".",",")} км</div>`; }
+  else {
+    const s=SAMPLES[zone], st=stateAt(s.group,tMin), nx=nextChange(s.group,tMin);
+    const label = st.state==="on"?"Світло є":st.state==="off"?"Світла немає":"Немає графіка";
+    html = `<div class="st ${st.state}">${label}</div><div>${s.area} · група ${s.group}</div>`+
+      (nx?`<div class="m">${nx.to==="on"?"Увімкнуть":nx.to==="off"?"Вимкнуть":"Далі немає графіка"} о ${hhmm(nx.at%1440)}${nx.at>=1440?" завтра":""}</div>`:"")+
+      `<div class="m">За опорною адресою ${s.addr} (${(dist/1000).toFixed(1).replace(".",",")} км)</div>`;
+  }
+  tip.innerHTML = html; tip.hidden=false;
+  const tx=Math.min(ev.clientX+14, innerWidth-tip.offsetWidth-8), ty=Math.min(ev.clientY+14, innerHeight-tip.offsetHeight-8);
+  tip.style.left=Math.max(8,tx)+"px"; tip.style.top=Math.max(8,ty)+"px";
+}
+let downAt=null;
+canvas.addEventListener("pointerdown", e=>{ downAt=[e.clientX,e.clientY]; });
+canvas.addEventListener("pointermove", e=>{ if(e.pointerType==="mouse" && !e.buttons) pick(e); });
+canvas.addEventListener("pointerup", e=>{ if(downAt && Math.hypot(e.clientX-downAt[0], e.clientY-downAt[1])<6) pick(e); downAt=null; });
+canvas.addEventListener("pointerleave", ()=> tip.hidden=true);
+
+/* ---------- district labels floating above the map ---------- */
+const LABEL_H = 650;
+const labelEls = DISTRICTS.map(dd=>{ const el=document.createElement("div"); el.className="dlabel"; el.textContent=dd.name; $("labels").appendChild(el); return el; });
+{
+  const lp=[]; DISTRICTS.forEach(dd=>{ lp.push(dd.x,4,dd.z, dd.x,LABEL_H-60,dd.z); });
+  const lg=new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.BufferAttribute(new Float32Array(lp),3));
+  const lines=new THREE.LineSegments(lg, new THREE.LineBasicMaterial({color:0xc9d2f0, transparent:true, opacity:.28, depthWrite:false}));
+  lines.renderOrder=3; scene.add(lines);
+}
+const _v = new THREE.Vector3();
+function updateLabels(){
+  const w=innerWidth, h=innerHeight;
+  DISTRICTS.forEach((dd,i)=>{
+    _v.set(dd.x, LABEL_H, dd.z).project(camera);
+    const el=labelEls[i];
+    if(_v.z>1 || _v.z<-1 || Math.abs(_v.x)>1.15 || Math.abs(_v.y)>1.15){ el.style.opacity="0"; return; }
+    const dist = camera.position.distanceTo(_v.set(dd.x, LABEL_H, dd.z));
+    const op = Math.max(0, Math.min(1, (90000-dist)/30000));
+    el.style.opacity = op.toFixed(2);
+    _v.project(camera);
+    const half = (el.offsetWidth||80)/2 + 6;
+    const sx = Math.max(half, Math.min(w-half, (_v.x+1)/2*w));
+    el.style.transform = `translate(${sx.toFixed(1)}px, ${((1-_v.y)/2*h).toFixed(1)}px) translate(-50%,-100%)`;
+  });
+}
+
+/* ---------- render loop ---------- */
+let animate = true, needs = true;
+controls.addEventListener("change", ()=> needs=true);
+function resize(){
+  const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h;
+  camera.fov = w<640 ? 52 : 40; camera.updateProjectionMatrix(); drawStrip(); needs=true;
+}
+addEventListener("resize", resize);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+(function loop(){
+  requestAnimationFrame(loop);
+  if(controls.update()) needs=true;
+  if(animate){
+    let moving=false;
+    for(let i=0;i<64;i++){ const d=target[i]-uState.value[i]; if(Math.abs(d)>0.002){ uState.value[i]+= reduce? d : d*0.12; moving=true; } else uState.value[i]=target[i]; }
+    animate = moving; needs=true;
+  }
+  if(needs){ renderer.render(scene,camera); updateLabels(); needs=false; }
+})();
+
+$("nSamples").textContent = SAMPLES.length;
+const mqSmall = matchMedia("(max-width:640px)");
+const syncMore = ()=>{ $("more").open = !mqSmall.matches; };
+syncMore(); mqSmall.addEventListener ? mqSmall.addEventListener("change", syncMore) : mqSmall.addListener(syncMore);
+resize(); drawTicks(); showFresh(); setT(absNow(), true); drawStrip();
+loadCity().then(()=>{ apply(); drawStrip(); }).catch(e=>{ console.error(e); $("loadTxt").textContent="Не вдалося завантажити карту міста. Оновіть сторінку."; });
+</script>
+
+</body>
+</html>
