@@ -6,6 +6,10 @@ on:
   schedule:
     - cron: "*/15 * * * *"   # every 15 minutes. (GitHub may delay scheduled runs)
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Опублікувати сайт, навіть якщо графік не змінився"
+        default: "no"
 
 permissions:
   contents: write
@@ -43,17 +47,17 @@ jobs:
           git push
 
       - name: Prepare site
-        if: steps.fetch.outputs.result == 'changed' || github.event_name != 'schedule'
+        if: steps.fetch.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
         run: |
           mkdir -p _site
           cp index.html city_v2.txt schedule.json _site/
           if [ -f CNAME ]; then cp CNAME _site/; fi
 
       - uses: actions/upload-pages-artifact@v3
-        if: steps.fetch.outputs.result == 'changed' || github.event_name != 'schedule'
+        if: steps.fetch.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
         with:
           path: _site
 
       - uses: actions/deploy-pages@v4
         id: deploy
-        if: steps.fetch.outputs.result == 'changed' || github.event_name != 'schedule'
+        if: steps.fetch.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
