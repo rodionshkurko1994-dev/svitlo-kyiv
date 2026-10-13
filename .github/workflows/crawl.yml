@@ -1,0 +1,41 @@
+name: Обхід адрес YASNO (групи будинків)
+
+on:
+  workflow_dispatch:
+    inputs:
+      input:
+        description: "Файл з адресами"
+        default: "data/test_addresses.json"
+      output:
+        description: "Куди записати результат"
+        default: "data/test_groups.json"
+  push:
+    branches: [main]
+    paths: ["data/crawl-request.txt"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crawl
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: Crawl
+        run: |
+          IN="${{ github.event.inputs.input || 'data/test_addresses.json' }}"
+          OUT="${{ github.event.inputs.output || 'data/test_groups.json' }}"
+          python3 scripts/crawl_groups.py "$IN" "$OUT"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+      - name: Commit results
+        run: |
+          git config user.name "svitlo-kyiv bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          git commit -m "Результати обходу адрес YASNO" || exit 0
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done
