@@ -27,6 +27,7 @@ jobs:
 
       - name: Fetch YASNO schedule
         id: fetch
+        continue-on-error: true
         run: |
           result=$(python3 scripts/update_schedule.py)
           echo "$result"

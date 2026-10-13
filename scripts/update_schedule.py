@@ -20,7 +20,12 @@ def fetch():
                 return json.load(r)
         except Exception as e:  # network hiccup, retry
             last = e
-    raise SystemExit(f"fetch failed: {last}")
+    detail = ""
+    if hasattr(last, "code"):
+        try: detail = f" (HTTP {last.code}: {last.read()[:200]!r})"
+        except Exception: detail = f" (HTTP {last.code})"
+    print(f"::error::YASNO fetch failed: {last!r}{detail}")
+    raise SystemExit(1)
 
 def valid(raw):
     if not isinstance(raw, dict) or len([k for k in raw if k.endswith(".1")]) < 60:
@@ -37,7 +42,8 @@ def valid(raw):
 raw = fetch()
 err = valid(raw)
 if err:
-    raise SystemExit(f"unexpected data: {err}")
+    print(f"::error::YASNO data rejected: {err}")
+    raise SystemExit(1)
 
 old = {}
 if OUT.exists():
