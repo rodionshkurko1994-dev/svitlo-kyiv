@@ -15,3 +15,7 @@
 ## Групи будинків
 
 `scripts/crawl_groups.py` повільно (≈1 запит/с) запитує в YASNO групу графіка для адрес з OpenStreetMap. Запуск: Actions → «Обхід адрес YASNO» → Run workflow. Результат комітиться в `data/`.
+
+## Щотижневе оновлення груп
+
+`crawl-weekly.yml` запускає повторний обхід усіх частин паралельно; кожна частина після завершення запускає `apply-groups.yml`, який перефарбовує модель (`tools/apply_groups.py`, без OSM: адреси будинків у `data/building_addr.json`) і перепубліковує сайт. Запуск — зовнішнім планувальником (cron-job.org) через API `workflow_dispatch`.

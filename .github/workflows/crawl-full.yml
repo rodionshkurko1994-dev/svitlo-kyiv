@@ -9,6 +9,9 @@ on:
       chain:
         description: "Після завершення запустити наступну частину"
         default: "yes"
+      refresh:
+        description: "Обійти заново, навіть якщо результат уже є"
+        default: "no"
 
 permissions:
   contents: write
@@ -28,7 +31,7 @@ jobs:
         id: crawl
         run: |
           B="${{ github.event.inputs.batch }}"
-          if [ -f "data/full/groups_$B.json" ]; then echo "::notice::batch $B already done"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f "data/full/groups_$B.json" ] && [ "${{ github.event.inputs.refresh }}" != "yes" ]; then echo "::notice::batch $B already done"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           python3 scripts/crawl_groups.py "data/full/batch_$B.json" "data/full/groups_$B.json" --cache=data/full/streets_cache_$B.json
       - name: Commit results
         if: steps.crawl.outputs.skip != '1'
@@ -39,6 +42,11 @@ jobs:
           git add "data/full/groups_$B.json" "data/full/streets_cache_$B.json"
           git commit -m "Обхід адрес YASNO: частина $B" || true
           for i in 1 2 3 4 5; do git pull --rebase -q && git push && break; sleep 10; done
+      - name: Recolour the map
+        if: steps.crawl.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run apply-groups.yml --ref main
       - name: Start next batch
         if: github.event.inputs.chain == 'yes' && steps.crawl.outputs.skip != '1'
         env:
@@ -47,7 +55,7 @@ jobs:
           B="${{ github.event.inputs.batch }}"
           N=$(printf "%02d" $((10#$B + 1)))
           if [ -f "data/full/batch_$N.json" ]; then
-            gh workflow run crawl-full.yml --ref main -f batch=$N -f chain=yes
+            gh workflow run crawl-full.yml --ref main -f batch=$N -f chain=yes -f refresh=${{ github.event.inputs.refresh }}
             echo "::notice::started batch $N"
           else
             echo "::notice::all batches done"

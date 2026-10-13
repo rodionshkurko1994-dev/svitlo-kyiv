@@ -1,0 +1,22 @@
+name: Щотижневий повторний обхід адрес
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start all batches in parallel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in data/full/batch_*.json; do
+            B=$(basename "$f" .json | sed 's/batch_//')
+            gh workflow run crawl-full.yml --ref main -f batch=$B -f chain=no -f refresh=yes
+            sleep 3
+          done
