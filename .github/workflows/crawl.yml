@@ -9,6 +9,9 @@ on:
       output:
         description: "Куди записати результат"
         default: "data/test_groups.json"
+      flags:
+        description: "Додаткові параметри (напр. --debug)"
+        default: ""
   push:
     branches: [main]
     paths: ["data/crawl-request.txt"]
@@ -30,7 +33,7 @@ jobs:
         run: |
           IN="${{ github.event.inputs.input || 'data/test_addresses.json' }}"
           OUT="${{ github.event.inputs.output || 'data/test_groups.json' }}"
-          python3 scripts/crawl_groups.py "$IN" "$OUT"
+          python3 scripts/crawl_groups.py "$IN" "$OUT" ${{ github.event.inputs.flags }}
           echo "OUT=$OUT" >> "$GITHUB_ENV"
       - name: Commit results
         run: |

@@ -16,6 +16,8 @@ DELAY = 0.8  # seconds between requests
 UA = "Mozilla/5.0 (svitlo-kyiv map; +https://svitlo-kyiv.online)"
 
 stats = collections.Counter()
+DEBUG = "--debug" in sys.argv
+debug_log = {}
 
 def get(path, **params):
     q = urllib.parse.urlencode({**COMMON, **params})
@@ -68,6 +70,8 @@ def street_id(osm_name):
     if toks:
         key = max(toks, key=len)  # the longest word is usually the distinctive one
         res = get("streets", query=key) or []
+        if DEBUG:
+            debug_log.setdefault(osm_name, {})["streets"] = res[:15]
         best = None
         for r in res:
             k2, t2 = norm_street(r.get("value", ""))
@@ -94,6 +98,8 @@ def house_id(sid, house):
     if not m:
         return None
     res = get("houses", streetId=sid, query=m.group(0)) or []
+    if DEBUG:
+        debug_log.setdefault(f"{sid}|{house}", {})["houses"] = res[:20]
     for r in res:
         if norm_house(r.get("value", "")) == want:
             return r["id"]
@@ -137,9 +143,13 @@ def main(inp, outp):
         "map_guess_same_group": agree, "map_guess_same_schedule_pattern": agree12,
         "distinct_groups": len({r["group"] for r in ok}),
     }
-    json.dump({"summary": summary, "results": out}, open(outp, "w"), ensure_ascii=False, indent=0)
+    payload = {"summary": summary, "results": out}
+    if DEBUG:
+        payload["debug"] = debug_log
+    json.dump(payload, open(outp, "w"), ensure_ascii=False, indent=0)
     print("SUMMARY " + json.dumps(summary, ensure_ascii=False))
     print(f"::notice::found {len(ok)}/{len(rows)}; map guess correct {agree}/{len(with_pred)} (same pattern {agree12}); {dict(stats)}")
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    main(args[0], args[1])
