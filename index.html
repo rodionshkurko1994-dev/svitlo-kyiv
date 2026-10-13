@@ -112,6 +112,39 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .sw.na{background:#3b4260}
+/* compact phone layout: full-width slim bars top and bottom */
+@media (max-width:640px){
+  .panel{left:0;right:0;width:100%;top:0;max-height:70%;border-radius:0 0 12px 12px;border-top:0;border-left:0;border-right:0;
+    padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;display:grid;grid-template-columns:1fr auto;column-gap:10px;row-gap:6px;align-items:center}
+  .panel>*{grid-column:1/-1}
+  .panel>.head{grid-column:1;align-items:center!important;gap:8px!important;justify-content:flex-start!important}
+  .panel>.clock{grid-column:2;gap:6px;justify-self:end}
+  h1{font-size:14px}
+  .tag{font-size:9px;padding:2px 6px;letter-spacing:.06em}
+  .clock b{font-size:16px}
+  .clock span{font-size:11px}
+  .split{display:flex;gap:16px;flex-wrap:wrap}
+  .stat{border:0;padding:0;flex-direction:row;align-items:baseline;gap:6px;border-radius:0}
+  .stat .k{font-size:10.5px;letter-spacing:.04em}
+  .stat .v{font-size:15px}
+  .bar{height:4px}
+  .more{padding-top:5px}
+  .more>summary{font-size:11.5px}
+  .note{font-size:12px}
+  .dock{left:0;right:0;bottom:0;border-radius:12px 12px 0 0;border-bottom:0;border-left:0;border-right:0;
+    padding:7px 12px calc(6px + env(safe-area-inset-bottom,0px));gap:2px}
+  .dock-top{flex-wrap:nowrap;gap:8px}
+  .dock-top .lbl{font-size:11.5px;white-space:nowrap}
+  .btns{gap:4px}
+  .btns button{font-size:11.5px;padding:3px 8px;border-radius:7px}
+  .track{height:26px}
+  #t{height:26px}
+  #t::-webkit-slider-runnable-track{height:26px}
+  #t::-webkit-slider-thumb{height:20px}
+  #strip{top:3px;height:8px}
+  .ticks{top:14px;font-size:9.5px}
+  .dlabel{font-size:9.5px;letter-spacing:.1em}
+}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
 </head>
@@ -121,7 +154,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 <canvas id="scene" aria-label="3D-карта Києва: будинки зі світлом помаранчеві, без світла темно-сині"></canvas>
 
 <section class="panel" aria-live="polite">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+  <div class="head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
     <h1>Світло Києва</h1>
     <span class="tag plan" id="modeTag">графік</span>
   </div>
@@ -151,7 +184,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 
 <section class="dock">
   <div class="dock-top">
-    <span class="lbl">Час на карті: <b id="tLbl">—</b></span>
+    <span class="lbl"><span class="hide-sm">Час на карті: </span><b id="tLbl">—</b></span>
     <div class="btns">
       <button type="button" id="nowBtn" class="active">Зараз</button>
       <button type="button" id="plus1">+1 год</button>
@@ -226,7 +259,7 @@ renderer.setClearColor(0x060912, 1);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, 1, 20, 140000);
 function homeView(){
-  const narrow = innerWidth/innerHeight < 0.8, dist = narrow ? 52000 : 31000;
+  const narrow = innerWidth/innerHeight < 0.8, dist = narrow ? 42000 : 31000;
   const dir = new THREE.Vector3(-0.16, 0.74, 0.65).normalize();
   const tgt = new THREE.Vector3(narrow ? 1200 : -1800, 0, narrow ? 1200 : -800);
   camera.position.copy(tgt).addScaledVector(dir, dist);
