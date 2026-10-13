@@ -1,0 +1,51 @@
+name: Повний обхід адрес YASNO (частинами)
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: "Номер частини (01, 02, ...)"
+        default: "01"
+      chain:
+        description: "Після завершення запустити наступну частину"
+        default: "yes"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: crawl-full
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Crawl batch ${{ github.event.inputs.batch }}
+        run: |
+          B="${{ github.event.inputs.batch }}"
+          python3 scripts/crawl_groups.py "data/full/batch_$B.json" "data/full/groups_$B.json" --cache=data/full/streets_cache.json
+      - name: Commit results
+        run: |
+          B="${{ github.event.inputs.batch }}"
+          git config user.name "svitlo-kyiv bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "data/full/groups_$B.json" data/full/streets_cache.json
+          git commit -m "Обхід адрес YASNO: частина $B" || true
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push && break; sleep 10; done
+      - name: Start next batch
+        if: github.event.inputs.chain == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          B="${{ github.event.inputs.batch }}"
+          N=$(printf "%02d" $((10#$B + 1)))
+          if [ -f "data/full/batch_$N.json" ]; then
+            gh workflow run crawl-full.yml --ref main -f batch=$N -f chain=yes
+            echo "::notice::started batch $N"
+          else
+            echo "::notice::all batches done"
+          fi
