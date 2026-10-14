@@ -45,16 +45,32 @@ if err:
     print(f"::error::YASNO data rejected: {err}")
     raise SystemExit(1)
 
-old = {}
+def remember(known, raw):
+    """Keep each group's latest real schedules (by date) so the map can fall back
+    to them while YASNO shows emergency outages instead of a schedule."""
+    for k, g in raw.items():
+        for day in ("today", "tomorrow"):
+            d = g.get(day) or {}
+            if d.get("status") == "ScheduleApplies" and d.get("slots") and d.get("date"):
+                known.setdefault(k, {})[d["date"][:10]] = d["slots"]
+    for k in known:  # keep the 3 most recent dates
+        for date in sorted(known[k])[:-3]:
+            del known[k][date]
+    return known
+
+old, known = {}, {}
 if OUT.exists():
     try:
-        old = json.loads(OUT.read_text()).get("raw", {})
+        prev = json.loads(OUT.read_text())
+        old, known = prev.get("raw", {}), prev.get("lastKnown", {})
     except Exception:
-        old = {}
-if old == raw:
+        pass
+known_before = json.dumps(known, sort_keys=True)
+known = remember(remember(known, old), raw)
+if old == raw and json.dumps(known, sort_keys=True) == known_before:
     print("unchanged")
     sys.exit(0)
 
 now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-OUT.write_text(json.dumps({"fetchedAt": now, "raw": raw}, ensure_ascii=False, separators=(",", ":")))
+OUT.write_text(json.dumps({"fetchedAt": now, "raw": raw, "lastKnown": known}, ensure_ascii=False, separators=(",", ":")))
 print("changed")

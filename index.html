@@ -47,6 +47,7 @@ h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:20px;letter-s
 .tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .tag.live{color:var(--on);border-color:rgba(255,150,54,.45)}
 .tag.plan{color:var(--off-ink);border-color:rgba(143,166,255,.4)}
+.tag.em{color:var(--warn);border-color:rgba(255,207,90,.55);background:rgba(255,207,90,.08)}
 .head-r{display:inline-flex;gap:6px;align-items:center;flex-shrink:0}
 .tag.donate{color:var(--night);background:var(--on);border-color:var(--on);text-decoration:none;cursor:pointer;transition:filter .15s}
 .tag.donate:hover{filter:brightness(1.12)}
@@ -126,7 +127,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .sw.em{background:#4a3f63}
-.tip .st.em{color:var(--warn)}
+.tip .st.em,.tip .m.em{color:var(--warn)}
 .sw.na{background:#3b4260}
 /* compact phone layout: full-width slim bars top and bottom */
 @media (max-width:640px){
@@ -239,9 +240,10 @@ const hhmm = m => String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).p
 const dayName = iso => new Intl.DateTimeFormat("uk-UA",{weekday:"long",day:"numeric",month:"long",timeZone:"UTC"}).format(new Date(iso+"T12:00:00Z"));
 
 /* ---------- schedule ---------- */
-let sched = SEED.raw, schedFetched = SEED.fetchedAt, fromLive = false;
+let sched = SEED.raw, schedFetched = SEED.fetchedAt, fromLive = false, lastKnown = SEED.lastKnown || {};
 let baseDate = kyivParts(new Date()).date;
 let tMin = kyivParts(new Date()).min, follow = true;
+function fmtDay(d){ const [y,mo,da]=d.split("-").map(Number); return da+" "+["січня","лютого","березня","квітня","травня","червня","липня","серпня","вересня","жовтня","листопада","грудня"][mo-1]; }
 function dayEntry(group, date){
   const g = sched[group+".1"]; if(!g) return null;
   for (const k of ["today","tomorrow"]) { const e=g[k]; if(e && e.date && e.date.slice(0,10)===date) return e; }
@@ -251,7 +253,14 @@ function stateAt(group, absMin){
   const date = addDays(baseDate, Math.floor(absMin/1440)), m = absMin%1440;
   const e = dayEntry(group, date);
   if(!e) return {state:"unknown"};
-  if(e.status && /Emergency/i.test(e.status)) return {state:"unknown", emergency:true};
+  if(e.status && /Emergency/i.test(e.status)){
+    // no schedule while emergency outages are on: fall back to the latest known one for that day (or before)
+    const lk = lastKnown[group+".1"] || {};
+    const d = lk[date] ? date : Object.keys(lk).filter(x=>x<=date).sort().pop();
+    if(!d) return {state:"unknown", emergency:true};
+    for(const s of lk[d]) if(m>=s.start && m<s.end) return {state: s.type==="Definite" ? "off" : "on", emergency:true, fallback:d};
+    return {state:"on", emergency:true, fallback:d};
+  }
   if(e.status === "WaitingForSchedule") return {state:"unknown"};
   for(const s of e.slots||[]) if(m>=s.start && m<s.end) return {state: s.type==="Definite" ? "off" : "on"};
   return {state:"on"};
@@ -504,13 +513,15 @@ async function loadCity(){
 
 /* ---------- apply state ---------- */
 function apply(){
-  let on=0, off=0, unk=0, emc=0, emergency=false;
+  let on=0, off=0, unk=0, emc=0, emergency=false, fbDate=null;
   const per = {};
   for(let g=1; g<=60; g++){ const st=stateAt(g,tMin); per[g]=st;
     if(st.emergency) emergency=true;
     target[g] = st.state==="on"?1:st.state==="off"?0:0.5;
-    targetE[g] = st.emergency ? 1 : 0;
-    const n = zoneBuildings[g]; st.emergency ? emc+=n : st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
+    const blind = st.emergency && !st.fallback;   // emergency and no schedule to fall back to
+    targetE[g] = blind ? 1 : 0;
+    if(st.fallback && (!fbDate || st.fallback < fbDate)) fbDate = st.fallback;
+    const n = zoneBuildings[g]; blind ? emc+=n : st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
   target[NZ]=0.5; targetE[NZ]=0; unk += zoneBuildings[NZ];
   $("lgEm").hidden = !emc;
   const known = on+off || 1, noSched = !(on+off);
@@ -523,7 +534,10 @@ function apply(){
   $("day").textContent = dayName(date);
   $("tLbl").textContent = (follow ? "зараз, " : "") + hhmm(tMin%1440) + (tMin>=1440 ? " завтра" : "");
   const ban = $("banner");
-  if (emergency && noSched){ ban.hidden=false; ban.textContent="Діють екстрені відключення по всьому Києву: графіки зараз не діють, світла може не бути будь-коли. Будинки затінені, доки YASNO не поверне графіки."; }
+  const tag=$("modeTag");
+  if (emergency){ tag.textContent="екстрені"; tag.className="tag em"; } else { tag.textContent = fromLive ? "живі дані" : "копія"; tag.className = "tag " + (fromLive ? "live" : "plan"); }
+  if (emergency && fbDate && !emc){ ban.hidden=false; ban.textContent=`Діють екстрені відключення. Карта показує останній відомий графік (${fmtDay(fbDate)}), але світло можуть вимкнути й поза ним.`; }
+  else if (emergency && noSched){ ban.hidden=false; ban.textContent="Діють екстрені відключення по всьому Києву: графіки зараз не діють, світла може не бути будь-коли. Будинки затінені, доки YASNO не поверне графіки."; }
   else if (emergency){ ban.hidden=false; ban.textContent="Діють екстрені відключення: для затінених будинків графік зараз не діє, світла може не бути будь-коли."; }
   else if (!on && !off){ ban.hidden=false; ban.textContent = "Графік на цей час ще не опубліковано."; }
   else ban.hidden=true;
@@ -537,7 +551,7 @@ function drawStrip(){
   const byGroup={}; for(let g=1; g<=60; g++) byGroup[g]=zoneBuildings[g]||1;
   for(let t=0;t<2880;t+=15){
     let on=0, off=0, em=0;
-    for(const g in byGroup){ const st=stateAt(+g,t), s=st.state; if(st.emergency) em+=byGroup[g]; else if(s==="on") on+=byGroup[g]; else if(s==="off") off+=byGroup[g]; }
+    for(const g in byGroup){ const st=stateAt(+g,t), s=st.state; if(st.emergency && !st.fallback) em+=byGroup[g]; else if(s==="on") on+=byGroup[g]; else if(s==="off") off+=byGroup[g]; }
     const tot=on+off, x0=t/2880*w, x1=(t+15)/2880*w;
     if(!tot) ctx.fillStyle = em ? "#4a3f63" : "#1c2238"; else { const a=on/tot; ctx.fillStyle=`rgb(${Math.round(42+(255-42)*a)},${Math.round(63+(150-63)*a)},${Math.round(143+(54-143)*a)})`; }
     ctx.fillRect(x0,0,Math.ceil(x1-x0)+0.5,10);
@@ -569,7 +583,6 @@ function showFresh(){
   const up = Object.values(sched)[0]?.updatedOn;
   const fmt = iso => new Intl.DateTimeFormat("uk-UA",{timeZone:TZ,day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(iso));
   $("fresh").innerHTML = `Графік YASNO оновлено <strong>${up?fmt(up):"—"}</strong>, отримано ${fmt(schedFetched)}.` + (fromLive?"":" Показано збережену копію.");
-  const tag=$("modeTag"); tag.textContent = fromLive ? "живі дані" : "копія"; tag.className = "tag " + (fromLive ? "live" : "plan");
 }
 /* live schedule: schedule.json is republished next to the page by an hourly task */
 async function pullSchedule(){
@@ -579,7 +592,7 @@ async function pullSchedule(){
     const d = await r.json();
     const raw = d && d.raw;
     if(raw && typeof raw==="object" && raw["1.1"] && (!fromLive || d.fetchedAt !== schedFetched)){
-      sched = raw; schedFetched = d.fetchedAt || schedFetched; fromLive = true;
+      sched = raw; lastKnown = d.lastKnown || {}; schedFetched = d.fetchedAt || schedFetched; fromLive = true;
       showFresh(); apply(); drawStrip();
     }
   }catch(e){}
@@ -599,11 +612,13 @@ function pick(ev){
   if(!grp){ html = `<div class="st">Немає даних</div><div class="m">Для цього будинку й найближчих сусідів група невідома</div>`; }
   else {
     const st=stateAt(grp,tMin), nx=nextChange(grp,tMin);
-    const label = st.emergency ? "Екстрені відключення" : st.state==="on"?"Світло є":st.state==="off"?"Світла немає":"Немає графіка";
+    const blind = st.emergency && !st.fallback;
+    const label = blind ? "Екстрені відключення" : st.state==="on"?"Світло є":st.state==="off"?"Світла немає":"Немає графіка";
     const src = how===1 ? "група за адресою будинку" : how===2 ? "група за сусіднім корпусом того ж номера" : "група оцінена за найближчим будинком";
-    html = `<div class="st ${st.emergency?"em":st.state}">${label}</div><div>Група ${grp}</div>`+
-      (st.emergency?`<div class="m">Графік зараз не діє, світла може не бути будь-коли</div>`:"")+
-      (!st.emergency && nx?`<div class="m">${nx.to==="on"?"Увімкнуть":nx.to==="off"?"Вимкнуть":"Далі немає графіка"} о ${hhmm(nx.at%1440)}${nx.at>=1440?" завтра":""}</div>`:"")+
+    html = `<div class="st ${blind?"em":st.state}">${label}</div><div>Група ${grp}</div>`+
+      (blind?`<div class="m">Графік зараз не діє, світла може не бути будь-коли</div>`:"")+
+      (st.fallback?`<div class="m em">Екстрені відключення: показано останній відомий графік (${fmtDay(st.fallback)})</div>`:"")+
+      (!blind && nx?`<div class="m">${nx.to==="on"?"Увімкнуть":nx.to==="off"?"Вимкнуть":"Далі немає графіка"} о ${hhmm(nx.at%1440)}${nx.at>=1440?" завтра":""}</div>`:"")+
       `<div class="m">${src}</div>`;
   }
   tip.innerHTML = html; tip.hidden=false;
