@@ -24,6 +24,10 @@ for url in ["https://www.dtek-kem.com.ua/ua/shutdowns", "https://www.dtek-kem.co
                    "csrf": bool(re.search(r'name="csrf-token" content="([^"]+)"', body)),
                    "vars": sorted(set(re.findall(r"(DisconSchedule\.\w+)\s*=", body)))}
     (OUT / f"dtek_{key}.html").write_text(body[:400000])
+    for v in ("fact", "preset", "showCurOutage", "currentWeekDayIndex"):
+        i = body.find("DisconSchedule." + v)
+        if i >= 0:
+            (OUT / f"dtek_{key}_raw_{v}.txt").write_text(body[i:i + 300000])
     # save the inline data blocks, if any
     for m in re.finditer(r"DisconSchedule\.(\w+)\s*=\s*(\{.*?\})\s*(?:;|\n)", body, re.S):
         (OUT / f"dtek_{key}_{m.group(1)}.json").write_text(m.group(2)[:2_000_000])
