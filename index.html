@@ -43,6 +43,14 @@ h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:20px;letter-s
 .tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .tag.live{color:var(--on);border-color:rgba(255,150,54,.45)}
 .tag.plan{color:var(--off-ink);border-color:rgba(143,166,255,.4)}
+.head-r{display:inline-flex;gap:6px;align-items:center;flex-shrink:0}
+.tag.donate{color:var(--night);background:var(--on);border-color:var(--on);text-decoration:none;cursor:pointer;transition:filter .15s}
+.tag.donate:hover{filter:brightness(1.12)}
+.tag.donate:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.head{flex-wrap:wrap;row-gap:6px!important}
+.head h1{white-space:nowrap}
+@media (max-width:640px){.panel>.head{min-width:0}.head-r{gap:5px}.tag.donate svg{width:8px;height:8px}}
+@media (max-width:440px){.panel>.clock span{display:none}}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
 .stat .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
@@ -159,7 +167,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 <section class="panel" aria-live="polite">
   <div class="head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
     <h1>Світло Києва</h1>
-    <span class="tag plan" id="modeTag">графік</span>
+    <span class="head-r"><span class="tag plan" id="modeTag">графік</span><a class="tag donate" href="https://send.monobank.ua/jar/3ozLFFRT2g" target="_blank" rel="noopener" title="Підтримати проєкт (банка monobank)"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path fill="currentColor" d="M8 14.2 6.9 13.2C3 9.7.5 7.4.5 4.6.5 2.3 2.3.6 4.5.6c1.3 0 2.5.6 3.5 1.6C9 1.2 10.2.6 11.5.6c2.2 0 4 1.7 4 4 0 2.8-2.5 5.1-6.4 8.6z"/></svg>Донат</a></span>
   </div>
   <div class="clock"><b id="clk">--:--</b><span id="day">—</span></div>
   <div class="split">
