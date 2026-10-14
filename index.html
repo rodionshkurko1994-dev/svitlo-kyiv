@@ -64,6 +64,7 @@ h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:20px;letter-s
 .sw.off{background:var(--off)}
 .bar{height:6px;border-radius:3px;background:var(--off);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--on);transition:width .4s}
+.bar.em{background:#4a3f63}
 .note{font-size:12.5px;line-height:1.5;color:var(--muted);margin:0}
 .note strong{color:var(--ink);font-weight:500}
 .banner{font-size:12.5px;line-height:1.45;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,207,90,.45);color:var(--warn);background:rgba(255,207,90,.07)}
@@ -124,7 +125,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 .indiv{font-size:12px}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
-.sw.em{background:#14172a;box-shadow:inset 0 0 0 1px rgba(150,170,230,.35)}
+.sw.em{background:#4a3f63}
 .tip .st.em{color:var(--warn)}
 .sw.na{background:#3b4260}
 /* compact phone layout: full-width slim bars top and bottom */
@@ -341,7 +342,9 @@ const bMat = new THREE.ShaderMaterial({
       offCol = mix(offCol, vec3(0.13,0.19,0.45), roof*0.6);
       vec3 naCol = mix(vec3(0.12,0.13,0.18), vec3(0.26,0.28,0.36), diff);
       vec3 c = vS >= 0.5 ? mix(naCol, onCol, (vS-0.5)*2.0) : mix(offCol, naCol, vS*2.0);
-      c = mix(c, vec3(0.045,0.05,0.085) + 0.05*diff, vE*0.85);   // emergency: shaded
+      vec3 emCol = mix(vec3(0.10,0.08,0.15), vec3(0.30,0.25,0.40), diff);   // emergency: muted violet, dimmed
+      emCol = mix(emCol, vec3(0.22,0.19,0.30)*diff, roof*0.5);
+      c = mix(c, emCol, vE);
       gl_FragColor = vec4(mix(c, uFogCol, fogF(vW)), 1.0);
     }`
 });
@@ -369,8 +372,8 @@ const roadMat = new THREE.ShaderMaterial({
       vec3 na = vec3(0.30, 0.32, 0.40) * (0.55 + 0.45*major);
       vec3 c = vS > 0.5 ? mix(na, lit, (vS-0.5)*2.0) : mix(dark, na, vS*2.0);
       if (vR > 8.5) c = vec3(0.32,0.30,0.42);
-      c = mix(c, vec3(0.10,0.11,0.16), vE*0.8);
-      float a = (0.35 + 0.55*major) * (1.0 - fogF(vW)) * (1.0 - 0.45*vE);
+      c = mix(c, vec3(0.20,0.17,0.28), vE*0.8);
+      float a = (0.35 + 0.55*major) * (1.0 - fogF(vW)) * (1.0 - 0.25*vE);
       gl_FragColor = vec4(c, a);
     }`
 });
@@ -510,16 +513,18 @@ function apply(){
     const n = zoneBuildings[g]; st.emergency ? emc+=n : st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
   target[NZ]=0.5; targetE[NZ]=0; unk += zoneBuildings[NZ];
   $("lgEm").hidden = !emc;
-  const known = on+off || 1;
-  $("nOn").textContent = Math.round(on/known*100)+"%";
-  $("nOff").textContent = Math.round(off/known*100)+"%";
+  const known = on+off || 1, noSched = !(on+off);
+  $("nOn").textContent = noSched ? "—" : Math.round(on/known*100)+"%";
+  $("nOff").textContent = noSched ? "—" : Math.round(off/known*100)+"%";
   $("share").style.width = (on/known*100)+"%";
+  document.querySelector(".bar").classList.toggle("em", noSched && emc>0);
   const date = addDays(baseDate, Math.floor(tMin/1440));
   $("clk").textContent = hhmm(tMin%1440);
   $("day").textContent = dayName(date);
   $("tLbl").textContent = (follow ? "зараз, " : "") + hhmm(tMin%1440) + (tMin>=1440 ? " завтра" : "");
   const ban = $("banner");
-  if (emergency){ ban.hidden=false; ban.textContent="Діють екстрені відключення: для затінених будинків графік зараз не діє, світла може не бути будь-коли."; }
+  if (emergency && noSched){ ban.hidden=false; ban.textContent="Діють екстрені відключення по всьому Києву: графіки зараз не діють, світла може не бути будь-коли. Будинки затінені, доки YASNO не поверне графіки."; }
+  else if (emergency){ ban.hidden=false; ban.textContent="Діють екстрені відключення: для затінених будинків графік зараз не діє, світла може не бути будь-коли."; }
   else if (!on && !off){ ban.hidden=false; ban.textContent = "Графік на цей час ще не опубліковано."; }
   else ban.hidden=true;
   animate = true;
@@ -531,10 +536,10 @@ function drawStrip(){
   const ctx=cv.getContext("2d"); ctx.clearRect(0,0,w,10);
   const byGroup={}; for(let g=1; g<=60; g++) byGroup[g]=zoneBuildings[g]||1;
   for(let t=0;t<2880;t+=15){
-    let on=0, off=0;
-    for(const g in byGroup){ const s=stateAt(+g,t).state; if(s==="on") on+=byGroup[g]; else if(s==="off") off+=byGroup[g]; }
+    let on=0, off=0, em=0;
+    for(const g in byGroup){ const st=stateAt(+g,t), s=st.state; if(st.emergency) em+=byGroup[g]; else if(s==="on") on+=byGroup[g]; else if(s==="off") off+=byGroup[g]; }
     const tot=on+off, x0=t/2880*w, x1=(t+15)/2880*w;
-    if(!tot) ctx.fillStyle="#1c2238"; else { const a=on/tot; ctx.fillStyle=`rgb(${Math.round(42+(255-42)*a)},${Math.round(63+(150-63)*a)},${Math.round(143+(54-143)*a)})`; }
+    if(!tot) ctx.fillStyle = em ? "#4a3f63" : "#1c2238"; else { const a=on/tot; ctx.fillStyle=`rgb(${Math.round(42+(255-42)*a)},${Math.round(63+(150-63)*a)},${Math.round(143+(54-143)*a)})`; }
     ctx.fillRect(x0,0,Math.ceil(x1-x0)+0.5,10);
   }
   ctx.fillStyle="rgba(232,236,248,.9)"; ctx.fillRect(w/2-0.5,0,1,10);
