@@ -307,10 +307,11 @@ controls.screenSpacePanning = false;
 const uState = { value: new Array(64).fill(0.5) };
 const target = new Array(64).fill(0.5);
 const uEm = { value: new Array(64).fill(0) }, targetE = new Array(64).fill(0);
+const uFb = { value: new Array(64).fill(0) }, targetF = new Array(64).fill(0);   // emergency, last known schedule shown: muted orange
 const FOG = `
   float fogF(vec3 wp){ float d = distance(wp, cameraPosition); return smoothstep(uFogNear, uFogFar, d); }`;
 const common = {
-  uState: uState, uEm: uEm,
+  uState: uState, uEm: uEm, uFb: uFb,
   uFogNear: { value: 30000 }, uFogFar: { value: 80000 },
   uFogCol: { value: new THREE.Color(0x060912) },
   uTime: { value: 0 }
@@ -321,18 +322,18 @@ const bMat = new THREE.ShaderMaterial({
   extensions: { derivatives: true },
   vertexShader: `
     attribute float zone;
-    uniform float uState[64]; uniform float uEm[64];
-    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE;
+    uniform float uState[64]; uniform float uEm[64]; uniform float uFb[64];
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE; varying float vF;
     void main(){
       vec4 w = modelMatrix * vec4(position,1.0);
       vW = w.xyz; vH = position.y;
-      vS = uState[int(zone + 0.5)]; vE = uEm[int(zone + 0.5)];
+      vS = uState[int(zone + 0.5)]; vE = uEm[int(zone + 0.5)]; vF = uFb[int(zone + 0.5)];
       vSeed = fract(sin(dot(floor(position.xz/9.0), vec2(12.9898,78.233)))*43758.5453);
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: `
     uniform float uFogNear, uFogFar; uniform vec3 uFogCol;
-    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE;
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE; varying float vF;
     ${FOG}
     void main(){
       vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
@@ -346,6 +347,8 @@ const bMat = new THREE.ShaderMaterial({
       vec3 onWall = mix(vec3(0.42,0.17,0.04), vec3(1.0,0.58,0.20), 0.35 + 0.65*diff);
       vec3 onCol = mix(onWall, vec3(1.0,0.78,0.42), lit*0.75);
       onCol = mix(onCol, vec3(0.95,0.52,0.18)*diff, roof);
+      vec3 onGrey = vec3(dot(onCol, vec3(0.299,0.587,0.114)));
+      onCol = mix(onCol, mix(onGrey, onCol, 0.55)*0.72, vF);   // emergency: muted orange
       // dark: deep navy
       vec3 offCol = mix(vec3(0.07,0.10,0.26), vec3(0.17,0.25,0.58), diff);
       offCol = mix(offCol, vec3(0.13,0.19,0.45), roof*0.6);
@@ -363,20 +366,20 @@ const roadMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false,
   vertexShader: `
     attribute float zone; attribute float rank;
-    uniform float uState[64]; uniform float uEm[64];
-    varying vec3 vW; varying float vS; varying float vR; varying float vE;
+    uniform float uState[64]; uniform float uEm[64]; uniform float uFb[64];
+    varying vec3 vW; varying float vS; varying float vR; varying float vE; varying float vF;
     void main(){
       vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vR = rank;
-      vS = uState[int(zone + 0.5)]; vE = uEm[int(zone + 0.5)];
+      vS = uState[int(zone + 0.5)]; vE = uEm[int(zone + 0.5)]; vF = uFb[int(zone + 0.5)];
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: `
     uniform float uFogNear, uFogFar; uniform vec3 uFogCol;
-    varying vec3 vW; varying float vS; varying float vR; varying float vE;
+    varying vec3 vW; varying float vS; varying float vR; varying float vE; varying float vF;
     ${FOG}
     void main(){
       float major = vR < 1.5 ? 1.0 : (vR < 2.5 ? 0.6 : 0.35);
-      vec3 lit = vec3(1.0, 0.70, 0.36) * (0.45 + 0.55*major);
+      vec3 lit = mix(vec3(1.0, 0.70, 0.36), vec3(0.55, 0.45, 0.36), vF) * (0.45 + 0.55*major) * (1.0 - 0.3*vF);
       vec3 dark = vec3(0.20, 0.27, 0.52) * (0.55 + 0.45*major);
       vec3 na = vec3(0.30, 0.32, 0.40) * (0.55 + 0.45*major);
       vec3 c = vS > 0.5 ? mix(na, lit, (vS-0.5)*2.0) : mix(dark, na, vS*2.0);
@@ -519,10 +522,10 @@ function apply(){
     if(st.emergency) emergency=true;
     target[g] = st.state==="on"?1:st.state==="off"?0:0.5;
     const blind = st.emergency && !st.fallback;   // emergency and no schedule to fall back to
-    targetE[g] = blind ? 1 : 0;
+    targetE[g] = blind ? 1 : 0; targetF[g] = st.fallback ? 1 : 0;
     if(st.fallback && (!fbDate || st.fallback < fbDate)) fbDate = st.fallback;
     const n = zoneBuildings[g]; blind ? emc+=n : st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
-  target[NZ]=0.5; targetE[NZ]=0; unk += zoneBuildings[NZ];
+  target[NZ]=0.5; targetE[NZ]=0; targetF[NZ]=0; unk += zoneBuildings[NZ];
   $("lgEm").hidden = !emc;
   const known = on+off || 1, noSched = !(on+off);
   $("nOn").textContent = noSched ? "—" : Math.round(on/known*100)+"%";
@@ -671,6 +674,7 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(controls.update()) needs=true;
   if(animate){
     let moving=false;
+    for(let i=0;i<64;i++){ const df=targetF[i]-uFb.value[i]; if(Math.abs(df)>0.002){ uFb.value[i]+= reduce? df : df*0.12; moving=true; } else uFb.value[i]=targetF[i]; }
     for(let i=0;i<64;i++){ const de=targetE[i]-uEm.value[i]; if(Math.abs(de)>0.002){ uEm.value[i]+= reduce? de : de*0.12; moving=true; } else uEm.value[i]=targetE[i]; }
     for(let i=0;i<64;i++){ const d=target[i]-uState.value[i]; if(Math.abs(d)>0.002){ uState.value[i]+= reduce? d : d*0.12; moving=true; } else uState.value[i]=target[i]; }
     animate = moving; needs=true;
