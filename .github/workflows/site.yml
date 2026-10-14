@@ -50,7 +50,7 @@ jobs:
         if: steps.fetch.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
         run: |
           mkdir -p _site
-          cp index.html city_v2.txt schedule.json _site/
+          cp index.html city_v2.txt schedule.json favicon.ico favicon-32.png favicon-192.png apple-touch-icon.png _site/
           if [ -f CNAME ]; then cp CNAME _site/; fi
 
       - uses: actions/upload-pages-artifact@v3
