@@ -112,6 +112,8 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 .indiv{font-size:12px}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
+.sw.em{background:#14172a;box-shadow:inset 0 0 0 1px rgba(150,170,230,.35)}
+.tip .st.em{color:var(--warn)}
 .sw.na{background:#3b4260}
 /* compact phone layout: full-width slim bars top and bottom */
 @media (max-width:640px){
@@ -169,7 +171,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
   <details class="more" id="more">
   <summary>Деталі</summary>
   <div class="more-body">
-  <div class="legend"><span><i class="sw na"></i>немає даних про групу</span></div>
+  <div class="legend"><span><i class="sw na"></i>немає даних про групу</span><span id="lgEm" hidden><i class="sw em"></i>екстрені відключення</span></div>
   <p class="note indiv">Будинки пофарбовані за групою своєї адреси в YASNO; частина — за найближчим сусідом. Свою адресу перевіряйте на <a href="https://www.dtek-kem.com.ua/ua/shutdowns" target="_blank" rel="noopener">сайті ДТЕК</a> або в «Київ Цифровому».</p>
   <p class="note" id="fresh">Графік YASNO: завантаження…</p>
   <details>
@@ -243,7 +245,7 @@ function stateAt(group, absMin){
 }
 function nextChange(group, absMin){
   const cur = stateAt(group, absMin).state;
-  for(let t=absMin+15; t<2880; t+=15){ const s=stateAt(group,t).state; if(s!==cur) return {at:t, to:s}; }
+  for(let t=Math.floor(absMin)+1; t<2880; t++){ const s=stateAt(group,t).state; if(s!==cur) return {at:t, to:s}; }
   return null;
 }
 let cellIdx = null, bcx = null, bcz = null, srcArr = null;
@@ -282,10 +284,11 @@ controls.screenSpacePanning = false;
 /* zone state uniform: 0 = off, 1 = on, 0.5 = no data */
 const uState = { value: new Array(64).fill(0.5) };
 const target = new Array(64).fill(0.5);
+const uEm = { value: new Array(64).fill(0) }, targetE = new Array(64).fill(0);
 const FOG = `
   float fogF(vec3 wp){ float d = distance(wp, cameraPosition); return smoothstep(uFogNear, uFogFar, d); }`;
 const common = {
-  uState: uState,
+  uState: uState, uEm: uEm,
   uFogNear: { value: 30000 }, uFogFar: { value: 80000 },
   uFogCol: { value: new THREE.Color(0x060912) },
   uTime: { value: 0 }
@@ -296,18 +299,18 @@ const bMat = new THREE.ShaderMaterial({
   extensions: { derivatives: true },
   vertexShader: `
     attribute float zone;
-    uniform float uState[64];
-    varying vec3 vW; varying float vS; varying float vH; varying float vSeed;
+    uniform float uState[64]; uniform float uEm[64];
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE;
     void main(){
       vec4 w = modelMatrix * vec4(position,1.0);
       vW = w.xyz; vH = position.y;
-      vS = uState[int(zone + 0.5)];
+      vS = uState[int(zone + 0.5)]; vE = uEm[int(zone + 0.5)];
       vSeed = fract(sin(dot(floor(position.xz/9.0), vec2(12.9898,78.233)))*43758.5453);
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: `
     uniform float uFogNear, uFogFar; uniform vec3 uFogCol;
-    varying vec3 vW; varying float vS; varying float vH; varying float vSeed;
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE;
     ${FOG}
     void main(){
       vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
@@ -326,6 +329,7 @@ const bMat = new THREE.ShaderMaterial({
       offCol = mix(offCol, vec3(0.13,0.19,0.45), roof*0.6);
       vec3 naCol = mix(vec3(0.12,0.13,0.18), vec3(0.26,0.28,0.36), diff);
       vec3 c = vS >= 0.5 ? mix(naCol, onCol, (vS-0.5)*2.0) : mix(offCol, naCol, vS*2.0);
+      c = mix(c, vec3(0.045,0.05,0.085) + 0.05*diff, vE*0.85);   // emergency: shaded
       gl_FragColor = vec4(mix(c, uFogCol, fogF(vW)), 1.0);
     }`
 });
@@ -335,16 +339,16 @@ const roadMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false,
   vertexShader: `
     attribute float zone; attribute float rank;
-    uniform float uState[64];
-    varying vec3 vW; varying float vS; varying float vR;
+    uniform float uState[64]; uniform float uEm[64];
+    varying vec3 vW; varying float vS; varying float vR; varying float vE;
     void main(){
       vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vR = rank;
-      vS = uState[int(zone + 0.5)];
+      vS = uState[int(zone + 0.5)]; vE = uEm[int(zone + 0.5)];
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: `
     uniform float uFogNear, uFogFar; uniform vec3 uFogCol;
-    varying vec3 vW; varying float vS; varying float vR;
+    varying vec3 vW; varying float vS; varying float vR; varying float vE;
     ${FOG}
     void main(){
       float major = vR < 1.5 ? 1.0 : (vR < 2.5 ? 0.6 : 0.35);
@@ -353,7 +357,8 @@ const roadMat = new THREE.ShaderMaterial({
       vec3 na = vec3(0.30, 0.32, 0.40) * (0.55 + 0.45*major);
       vec3 c = vS > 0.5 ? mix(na, lit, (vS-0.5)*2.0) : mix(dark, na, vS*2.0);
       if (vR > 8.5) c = vec3(0.32,0.30,0.42);
-      float a = (0.35 + 0.55*major) * (1.0 - fogF(vW));
+      c = mix(c, vec3(0.10,0.11,0.16), vE*0.8);
+      float a = (0.35 + 0.55*major) * (1.0 - fogF(vW)) * (1.0 - 0.45*vE);
       gl_FragColor = vec4(c, a);
     }`
 });
@@ -484,13 +489,15 @@ async function loadCity(){
 
 /* ---------- apply state ---------- */
 function apply(){
-  let on=0, off=0, unk=0, emergency=false;
+  let on=0, off=0, unk=0, emc=0, emergency=false;
   const per = {};
   for(let g=1; g<=60; g++){ const st=stateAt(g,tMin); per[g]=st;
     if(st.emergency) emergency=true;
     target[g] = st.state==="on"?1:st.state==="off"?0:0.5;
-    const n = zoneBuildings[g]; st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
-  target[NZ]=0.5; unk += zoneBuildings[NZ];
+    targetE[g] = st.emergency ? 1 : 0;
+    const n = zoneBuildings[g]; st.emergency ? emc+=n : st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
+  target[NZ]=0.5; targetE[NZ]=0; unk += zoneBuildings[NZ];
+  $("lgEm").hidden = !emc;
   const known = on+off || 1;
   $("nOn").textContent = Math.round(on/known*100)+"%";
   $("nOff").textContent = Math.round(off/known*100)+"%";
@@ -500,7 +507,7 @@ function apply(){
   $("day").textContent = dayName(date);
   $("tLbl").textContent = (follow ? "зараз, " : "") + hhmm(tMin%1440) + (tMin>=1440 ? " завтра" : "");
   const ban = $("banner");
-  if (emergency){ ban.hidden=false; ban.textContent="YASNO повідомляє про екстрені відключення: планові графіки зараз не діють, тож карта не показує реальний стан."; }
+  if (emergency){ ban.hidden=false; ban.textContent="Діють екстрені відключення: для затінених будинків графік зараз не діє, світла може не бути будь-коли."; }
   else if (!on && !off){ ban.hidden=false; ban.textContent = "Графік на цей час ще не опубліковано."; }
   else ban.hidden=true;
   animate = true;
@@ -575,10 +582,11 @@ function pick(ev){
   if(!grp){ html = `<div class="st">Немає даних</div><div class="m">Для цього будинку й найближчих сусідів група невідома</div>`; }
   else {
     const st=stateAt(grp,tMin), nx=nextChange(grp,tMin);
-    const label = st.state==="on"?"Світло є":st.state==="off"?"Світла немає":"Немає графіка";
+    const label = st.emergency ? "Екстрені відключення" : st.state==="on"?"Світло є":st.state==="off"?"Світла немає":"Немає графіка";
     const src = how===1 ? "група за адресою будинку" : how===2 ? "група за сусіднім корпусом того ж номера" : "група оцінена за найближчим будинком";
-    html = `<div class="st ${st.state}">${label}</div><div>Група ${grp}</div>`+
-      (nx?`<div class="m">${nx.to==="on"?"Увімкнуть":nx.to==="off"?"Вимкнуть":"Далі немає графіка"} о ${hhmm(nx.at%1440)}${nx.at>=1440?" завтра":""}</div>`:"")+
+    html = `<div class="st ${st.emergency?"em":st.state}">${label}</div><div>Група ${grp}</div>`+
+      (st.emergency?`<div class="m">Графік зараз не діє, світла може не бути будь-коли</div>`:"")+
+      (!st.emergency && nx?`<div class="m">${nx.to==="on"?"Увімкнуть":nx.to==="off"?"Вимкнуть":"Далі немає графіка"} о ${hhmm(nx.at%1440)}${nx.at>=1440?" завтра":""}</div>`:"")+
       `<div class="m">${src}</div>`;
   }
   tip.innerHTML = html; tip.hidden=false;
@@ -631,6 +639,7 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(controls.update()) needs=true;
   if(animate){
     let moving=false;
+    for(let i=0;i<64;i++){ const de=targetE[i]-uEm.value[i]; if(Math.abs(de)>0.002){ uEm.value[i]+= reduce? de : de*0.12; moving=true; } else uEm.value[i]=targetE[i]; }
     for(let i=0;i<64;i++){ const d=target[i]-uState.value[i]; if(Math.abs(d)>0.002){ uState.value[i]+= reduce? d : d*0.12; moving=true; } else uState.value[i]=target[i]; }
     animate = moving; needs=true;
   }
