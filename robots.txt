@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://svitlo-kyiv.online/sitemap.xml
+Sitemap: https://cyber-kyiv.online/sitemap.xml

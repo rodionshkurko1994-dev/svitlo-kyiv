@@ -13,7 +13,7 @@ import json, re, sys, time, urllib.parse, urllib.request, collections
 BASE = "https://app.yasno.ua/api/blackout-service/public/shutdowns/addresses/v2/"
 COMMON = {"regionId": "25", "dsoId": "902"}
 DELAY = 0.6  # seconds between requests
-UA = "Mozilla/5.0 (svitlo-kyiv map; +https://svitlo-kyiv.online)"
+UA = "Mozilla/5.0 (Cyber Kyiv map; +https://cyber-kyiv.online)"
 
 class FetchError(Exception):
     pass

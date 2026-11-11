@@ -10,7 +10,7 @@ OUT = pathlib.Path(__file__).resolve().parent.parent / "schedule.json"
 
 def fetch():
     req = urllib.request.Request(URL, headers={
-        "User-Agent": "Mozilla/5.0 (svitlo-kyiv map; +https://github.com/rodionshkurko1994-dev/svitlo-kyiv)",
+        "User-Agent": "Mozilla/5.0 (Cyber Kyiv map; +https://cyber-kyiv.online)",
         "Accept": "application/json",
     })
     last = None

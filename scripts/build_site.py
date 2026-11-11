@@ -80,6 +80,6 @@ idx.write_text(page)
 (site / "sitemap.xml").write_text(
     '<?xml version="1.0" encoding="UTF-8"?>\n'
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    f"  <url><loc>https://svitlo-kyiv.online/</loc><lastmod>{fetched}</lastmod><changefreq>hourly</changefreq><priority>1.0</priority></url>\n"
+    f"  <url><loc>https://cyber-kyiv.online/</loc><lastmod>{fetched}</lastmod><changefreq>hourly</changefreq><priority>1.0</priority></url>\n"
     "</urlset>\n")
 print(f"site built: {len(groups)} groups, emergency={emergency}, lastmod={fetched}")

@@ -13,7 +13,7 @@ def rep(old, new):
     assert old in s, old[:90]
     s = s.replace(old, new, 1)
 
-URL = "https://svitlo-kyiv.online/"
+URL = "https://cyber-kyiv.online/"
 TITLE = "Відключення світла Київ — графік і карта онлайн | Cyber Kyiv"
 DESC = ("Де зараз є світло в Києві: 3D-карта відключень по кожному будинку за графіками YASNO (ДТЕК). "
         "Оновлення кожні 15 хвилин, прогноз на 48 годин, екстрені відключення.")
