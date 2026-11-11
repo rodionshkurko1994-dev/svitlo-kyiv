@@ -110,13 +110,18 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 .tip .st.on{color:var(--on)}
 .tip .st.off{color:var(--off-ink)}
 .tip .m{color:var(--muted)}
-.compass{z-index:2;position:fixed;right:16px;top:calc(16px + env(safe-area-inset-top,0px));font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.6;pointer-events:none}
+.compass{z-index:2;position:fixed;right:16px;top:calc(16px + env(safe-area-inset-top,0px));font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.6;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.north{pointer-events:auto;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(12,16,32,.82);color:var(--ink);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(8px);padding:0}
+.north:focus-visible{outline:2px solid var(--on);outline-offset:2px}
+#needle{transform-origin:12px 12px;transition:none}
+#scene:focus{outline:none}
 @media (max-width:640px){
   .panel{max-height:44%;padding:12px 14px;gap:9px}
   h1{font-size:16px}
   .clock b{font-size:24px}
   .stat .v{font-size:18px}
-  .compass{display:none}
+  .compass{top:auto;bottom:calc(var(--dock-h,120px) + 12px);right:12px}
+  .compass.north-up{display:none}
   .hide-sm{display:none}
 }
 [hidden]{display:none!important}
@@ -244,7 +249,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
   </details>
 </section>
 
-<div class="compass" aria-hidden="true">Пн ↑<br><span class="hide-sm">тягніть — обертання<br>правою — зсув · колесо — масштаб</span></div>
+<div class="compass"><button type="button" id="north" class="north" title="Повернути північ угору" aria-label="Повернути північ угору"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g id="needle"><path d="M12 3l3.2 9h-6.4z" fill="#ff9636"/><path d="M12 21l-3.2-9h6.4z" fill="currentColor" opacity=".55"/></g></svg></button><span class="hide-sm">перетягніть — рух · колесо — масштаб<br>права кнопка або Ctrl — поворот і нахил</span></div>
 
 <section class="dock">
   <div class="dock-top">
@@ -268,7 +273,6 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 <div class="tip" id="tip" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 const META = {"header":{"zone":[0,111881],"src":[111884,111881],"height":[223768,223762],"ringCount":[447532,111881],"ringLen":[559416,224872],"coords":[784288,2612900],"roadRank":[3397188,23831],"roadLen":[3421020,47662],"roadCoords":[3468684,387640],"roadZone":[3856324,96910],"water":[3953236,487548],"parks":[4440784,931164],"ground":[5371948,3552]},"city":[[21802,4931],[21700,5024],[21372,4614],[20598,4343],[20461,4465],[19718,3834],[19577,3579],[19921,3234],[20001,2983],[19831,2766],[19958,2565],[19281,1785],[19132,1893],[18209,1261],[18209,739],[16943,139],[15777,-936],[16634,-1283],[16350,-1571],[16541,-1814],[16415,-1947],[16564,-2102],[16476,-2188],[15697,-2078],[16297,-2694],[16033,-3055],[16211,-3742],[17000,-3710],[16614,-4448],[16239,-4156],[16087,-4640],[15774,-4463],[15429,-5409],[16008,-5872],[16034,-5759],[16337,-5795],[16229,-6039],[16851,-6395],[16817,-6502],[17148,-6527],[17077,-7356],[16858,-7244],[16599,-7367],[16659,-7623],[21502,-9633],[21356,-9802],[21095,-11899],[20851,-12194],[20973,-12725],[19664,-13276],[18704,-14376],[18655,-14092],[17796,-13893],[17487,-14794],[16593,-14737],[14147,-15572],[13983,-15478],[14275,-15023],[13349,-13579],[13532,-13465],[13751,-11682],[12685,-11572],[12577,-12385],[11421,-11697],[10630,-11474],[10212,-11223],[9638,-9607],[9082,-9375],[5237,-9541],[4114,-10011],[2621,-9982],[2337,-9551],[2430,-8910],[2845,-8686],[3404,-7753],[3337,-7362],[2569,-6955],[2241,-7050],[1717,-7961],[1026,-8405],[938,-9237],[732,-9533],[-1197,-10673],[-1702,-11258],[-2076,-13031],[-2568,-13037],[-2492,-13204],[-2722,-13519],[-3926,-13462],[-4033,-14855],[-4118,-14753],[-5188,-15017],[-10563,-15086],[-10587,-13662],[-12814,-13693],[-15075,-13332],[-13681,-12665],[-13777,-12479],[-13352,-12086],[-12647,-11866],[-13362,-11777],[-13329,-11416],[-13490,-11376],[-13278,-11204],[-13508,-11006],[-13751,-11067],[-13719,-10642],[-14828,-11624],[-15513,-11423],[-15734,-11546],[-15773,-11233],[-15366,-10809],[-15466,-10749],[-15276,-10397],[-15430,-9120],[-16112,-9151],[-16303,-8379],[-16909,-7981],[-17452,-7893],[-18147,-7193],[-18417,-6635],[-17704,-5797],[-17715,-5333],[-18053,-4852],[-17971,-4715],[-18238,-4174],[-18892,-4073],[-19021,-3849],[-19163,-2656],[-18725,-2447],[-18576,-2187],[-19245,-1386],[-19814,-227],[-19821,251],[-19378,774],[-19367,1066],[-19666,1246],[-19717,1696],[-20103,2138],[-19692,2410],[-19458,2917],[-19103,2616],[-18785,1988],[-18433,2011],[-17771,2604],[-17245,2161],[-17394,2018],[-17004,1108],[-16917,294],[-14053,846],[-12470,456],[-12604,-293],[-12495,-483],[-12227,-255],[-12107,125],[-11964,61],[-11938,470],[-11476,527],[-11319,1861],[-10612,3249],[-8931,4874],[-7235,5745],[-7213,5926],[-6846,5990],[-6942,6254],[-6670,6502],[-6449,6442],[-5478,7571],[-6360,8639],[-5857,9083],[-5978,9853],[-5819,9960],[-5840,10296],[-4804,10554],[-4613,9967],[-4410,9835],[-3664,9940],[-3739,10118],[-3576,10196],[-3542,10468],[-3683,10774],[-3347,10901],[-3321,11864],[-3217,12189],[-2964,12210],[-2995,12444],[-3193,12524],[-3188,12871],[-2471,12832],[-2470,12596],[-2039,12670],[-1603,12987],[-2232,13621],[-1683,14161],[-769,13693],[-249,14265],[963,14692],[829,16324],[1218,16545],[533,17617],[1869,17586],[1985,18489],[1577,19342],[2404,19978],[2367,20642],[2203,20822],[2338,21135],[3933,21060],[3989,21162],[4693,22623],[5150,26178],[8758,24758],[8287,23733],[8891,23509],[8868,23231],[8058,22452],[7992,21988],[7462,21322],[7540,20666],[6911,20396],[6817,19697],[6382,19139],[6420,18716],[8580,18773],[8939,18149],[8975,17485],[8930,16785],[7850,14929],[7266,13359],[6558,12426],[6822,12174],[6470,11455],[7472,11190],[6593,10201],[6791,9957],[7071,10071],[8202,9691],[8938,9614],[9042,10316],[10964,10126],[11086,10703],[12444,11096],[12529,11361],[13568,10801],[13687,10545],[13719,10159],[13260,9320],[13436,9078],[13813,8978],[13586,8527],[13710,8455],[13580,7897],[13954,7479],[14555,7736],[14807,8090],[14672,8243],[16008,8788],[16745,8542],[18234,8780],[18276,8502],[17973,8382],[18171,7775],[17930,7728],[17973,7525],[18327,7408],[18473,7123],[18474,6856],[18130,6713],[18098,6145],[18231,5996],[19186,5740],[19769,6240],[20820,6452],[21004,6762],[20807,7000],[21334,7084],[21389,5615],[21568,5278],[21785,5310],[21802,4931]],"v":2,"stats":{"buildings":111881,"byAddress":28146,"byAddressNear":4014,"byNeighbour":55980,"noData":23741,"addresses":30649}};
 const SEED = {fetchedAt:"2026-10-12T13:58:00Z", raw: {"1.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"2.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"3.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"4.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"5.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"6.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"7.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"8.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"9.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"10.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"11.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"12.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"13.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"14.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"15.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"16.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"17.1":{"today":{"slots":[{"start":0,"end":210,"type":"Definite"},{"start":210,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"18.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"19.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"20.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"21.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"22.1":{"today":{"slots":[{"start":0,"end":180,"type":"NotPlanned"},{"start":180,"end":390,"type":"Definite"},{"start":390,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"23.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"24.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"25.1":{"today":{"slots":[{"start":0,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"26.1":{"today":{"slots":[{"start":0,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"27.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"28.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"29.1":{"today":{"slots":[{"start":0,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"30.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"31.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"32.1":{"today":{"slots":[{"start":0,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"33.1":{"today":{"slots":[{"start":0,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"34.1":{"today":{"slots":[{"start":0,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"35.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"36.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"37.1":{"today":{"slots":[{"start":0,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"38.1":{"today":{"slots":[{"start":0,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"39.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"40.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"41.1":{"today":{"slots":[{"start":0,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"42.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"43.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"44.1":{"today":{"slots":[{"start":0,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"45.1":{"today":{"slots":[{"start":0,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"46.1":{"today":{"slots":[{"start":0,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"47.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"48.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"49.1":{"today":{"slots":[{"start":0,"end":1050,"type":"NotPlanned"},{"start":1050,"end":1260,"type":"Definite"},{"start":1260,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"50.1":{"today":{"slots":[{"start":0,"end":1110,"type":"NotPlanned"},{"start":1110,"end":1320,"type":"Definite"},{"start":1320,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"51.1":{"today":{"slots":[{"start":0,"end":360,"type":"NotPlanned"},{"start":360,"end":570,"type":"Definite"},{"start":570,"end":1140,"type":"NotPlanned"},{"start":1140,"end":1350,"type":"Definite"},{"start":1350,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"52.1":{"today":{"slots":[{"start":0,"end":510,"type":"NotPlanned"},{"start":510,"end":690,"type":"Definite"},{"start":690,"end":1230,"type":"NotPlanned"},{"start":1230,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"53.1":{"today":{"slots":[{"start":0,"end":600,"type":"NotPlanned"},{"start":600,"end":780,"type":"Definite"},{"start":780,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"54.1":{"today":{"slots":[{"start":0,"end":540,"type":"NotPlanned"},{"start":540,"end":750,"type":"Definite"},{"start":750,"end":1320,"type":"NotPlanned"},{"start":1320,"end":1440,"type":"Definite"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"55.1":{"today":{"slots":[{"start":0,"end":660,"type":"NotPlanned"},{"start":660,"end":870,"type":"Definite"},{"start":870,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"56.1":{"today":{"slots":[{"start":0,"end":720,"type":"NotPlanned"},{"start":720,"end":930,"type":"Definite"},{"start":930,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"57.1":{"today":{"slots":[{"start":0,"end":750,"type":"NotPlanned"},{"start":750,"end":960,"type":"Definite"},{"start":960,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"58.1":{"today":{"slots":[{"start":0,"end":840,"type":"NotPlanned"},{"start":840,"end":1050,"type":"Definite"},{"start":1050,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"59.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":930,"type":"NotPlanned"},{"start":930,"end":1140,"type":"Definite"},{"start":1140,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"},"60.1":{"today":{"slots":[{"start":0,"end":30,"type":"Definite"},{"start":30,"end":960,"type":"NotPlanned"},{"start":960,"end":1170,"type":"Definite"},{"start":1170,"end":1440,"type":"NotPlanned"}],"date":"2026-10-12T00:00:00+03:00","status":"ScheduleApplies"},"tomorrow":{"slots":[{"start":0,"end":1440,"type":"NotPlanned"}],"date":"2026-10-13T00:00:00+03:00","status":"WaitingForSchedule"},"updatedOn":"2026-10-12T07:26:32+00:00"}}};
@@ -343,12 +347,163 @@ function homeView(){
   camera.position.copy(tgt).addScaledVector(dir, dist);
   return tgt;
 }
+/* ---------- map navigation (Google Maps style) ---------- */
+class MapNav extends THREE.EventDispatcher {
+  constructor(camera, el){
+    super();
+    this.camera = camera; this.el = el; this.target = new THREE.Vector3();
+    this.minDistance = 200; this.maxDistance = 60000; this.maxTilt = 1.25; this.bound = 26000;
+    const off = camera.position.clone().sub(this.target);
+    this.dist = off.length(); this.az = Math.atan2(off.x, off.z); this.tilt = Math.acos(Math.min(1, off.y/this.dist));
+    this.pointers = new Map(); this.vel = new THREE.Vector2(); this.anim = null; this.dirty = true; this.lastTap = 0;
+    this._ray = new THREE.Raycaster(); this._ndc = new THREE.Vector2(); this._plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+    el.style.touchAction = "none";
+    el.addEventListener("pointerdown", e=>this.down(e));
+    el.addEventListener("pointermove", e=>this.move(e));
+    el.addEventListener("pointerup", e=>this.up(e));
+    el.addEventListener("pointercancel", e=>this.up(e));
+    el.addEventListener("wheel", e=>this.wheel(e), {passive:false});
+    el.addEventListener("contextmenu", e=>e.preventDefault());
+    el.addEventListener("dblclick", e=>{ if(e.pointerType!=="touch") this.zoomAt(e.clientX, e.clientY, 0.5, true); });
+    el.addEventListener("keydown", e=>this.key(e));
+  }
+  setFrom(target){                         // take the current camera position around a new target
+    this.target.copy(target);
+    const off = this.camera.position.clone().sub(target);
+    this.dist = off.length(); this.az = Math.atan2(off.x, off.z); this.tilt = Math.acos(Math.min(1, off.y/this.dist)); this.apply();
+  }
+  apply(){
+    this.dist = Math.min(this.maxDistance, Math.max(this.minDistance, this.dist));
+    this.tilt = Math.min(this.maxTilt, Math.max(0.0001, this.tilt));
+    this.target.x = Math.max(-this.bound, Math.min(this.bound, this.target.x));
+    this.target.z = Math.max(-this.bound, Math.min(this.bound, this.target.z)); this.target.y = 0;
+    const st = Math.sin(this.tilt);
+    this.camera.position.set(this.target.x + this.dist*st*Math.sin(this.az), this.dist*Math.cos(this.tilt), this.target.z + this.dist*st*Math.cos(this.az));
+    this.camera.lookAt(this.target); this.camera.updateMatrixWorld();
+    this.dirty = true;
+  }
+  ground(x, y){                            // ground point under a screen point (or toward the horizon)
+    const r = this.el.getBoundingClientRect();
+    this._ndc.set((x-r.left)/r.width*2-1, -(y-r.top)/r.height*2+1);
+    this._ray.setFromCamera(this._ndc, this.camera);
+    const d = this._ray.ray.direction;
+    if (d.y > -0.05){ d.y = -0.05; d.normalize(); }   // above the horizon: clamp so the map never flies away
+    const out = new THREE.Vector3(); this._ray.ray.intersectPlane(this._plane, out); return out;
+  }
+  keep(g, x, y){                           // move the map so ground point g sits under (x, y)
+    const now = this.ground(x, y); this.target.x += g.x - now.x; this.target.z += g.z - now.z; this.apply();
+  }
+  zoomAt(x, y, f, animated){
+    if (animated){ this.anim = {x, y, f, t0: performance.now(), done: 1}; return; }
+    const g = this.ground(x, y); this.dist *= f; this.apply(); this.keep(g, x, y);
+  }
+  down(e){
+    this.el.focus({preventScroll:true});
+    this.el.setPointerCapture && this.el.setPointerCapture(e.pointerId);
+    this.vel.set(0,0); this.anim = null;
+    this.pointers.set(e.pointerId, {x:e.clientX, y:e.clientY, t:performance.now()});
+    const rot = e.pointerType === "mouse" && (e.button === 2 || e.ctrlKey || e.shiftKey || e.metaKey);
+    this.start(rot ? "rotate" : null);
+    if (e.pointerType === "touch" && this.pointers.size === 1){
+      const t = performance.now();
+      if (t - this.lastTap < 300 && Math.hypot(e.clientX-this.lastTapX, e.clientY-this.lastTapY) < 30){ this.zoomAt(e.clientX, e.clientY, 0.5, true); this.lastTap = 0; }
+      else { this.lastTap = t; this.lastTapX = e.clientX; this.lastTapY = e.clientY; }
+    }
+  }
+  start(mode){
+    const P = [...this.pointers.values()];
+    if (P.length === 1){
+      this.mode = mode || "pan"; this.grab = this.ground(P[0].x, P[0].y); this.track = [];
+    } else if (P.length >= 2){
+      const [a, b] = P; this.mode = "two"; this.gesture = null;
+      this.m0 = {x:(a.x+b.x)/2, y:(a.y+b.y)/2, d:Math.hypot(b.x-a.x, b.y-a.y), ang:Math.atan2(b.y-a.y, b.x-a.x)};
+      this.prev = {...this.m0}; this.grab = this.ground(this.m0.x, this.m0.y);
+      this.f0 = P.slice(0, 2).map(q => ({x:q.x, y:q.y}));
+    }
+  }
+  move(e){
+    const p = this.pointers.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; p.t = performance.now();
+    if (this.mode === "pan" && this.pointers.size === 1){
+      const before = this.target.clone(); this.keep(this.grab, p.x, p.y);
+      this.track.push({t: p.t, x: this.target.x - before.x, z: this.target.z - before.z}); if (this.track.length > 6) this.track.shift();
+    } else if (this.mode === "rotate"){
+      this.az -= dx * 0.006; this.tilt -= dy * 0.006; this.apply();
+    } else if (this.mode === "two" && this.pointers.size >= 2){
+      const [a, b] = [...this.pointers.values()];
+      const m = {x:(a.x+b.x)/2, y:(a.y+b.y)/2, d:Math.hypot(b.x-a.x, b.y-a.y), ang:Math.atan2(b.y-a.y, b.x-a.x)};
+      if (!this.gesture){                  // decide once: tilt (both fingers up/down together) or map
+        const v = [a, b].map((q, i) => ({x: q.x - this.f0[i].x, y: q.y - this.f0[i].y}));
+        const moved = v.map(q => Math.hypot(q.x, q.y));
+        const hi = Math.max(...moved), lo = Math.min(...moved);
+        if (hi > 12 && (lo > 5 || hi > 40)){   // fingers report in turn: wait until both have moved
+          const vertical = v.every(q => Math.abs(q.y) >= 1.6*Math.abs(q.x));
+          const together = v[0].y * v[1].y > 0 && lo >= 0.35*hi;
+          this.gesture = vertical && together ? "tilt" : "map";
+          if (this.gesture === "map"){ this.prev = m; this.grab = this.ground(m.x, m.y); }
+        }
+      }
+      if (this.gesture === "tilt"){ this.tilt -= (m.y - this.prev.y) * 0.008; this.apply(); }
+      else if (this.gesture === "map"){
+        let da = m.ang - this.prev.ang; if (da > Math.PI) da -= 2*Math.PI; if (da < -Math.PI) da += 2*Math.PI;
+        this.dist *= this.prev.d / Math.max(m.d, 1); this.az -= da; this.apply();
+        this.keep(this.grab, m.x, m.y);
+      }
+      this.prev = m;
+    }
+  }
+  up(e){
+    if (!this.pointers.has(e.pointerId)) return;
+    this.pointers.delete(e.pointerId);
+    if (this.mode === "pan" && this.pointers.size === 0 && this.track && this.track.length > 1){
+      const now = performance.now(), recent = this.track.filter(q => now - q.t < 90);
+      if (recent.length > 1){ const span = Math.max(16, recent[recent.length-1].t - recent[0].t);
+        this.vel.set(recent.reduce((s,q)=>s+q.x, 0)/span, recent.reduce((s,q)=>s+q.z, 0)/span);
+        const vmax = this.dist * 0.0009; if (this.vel.length() > vmax) this.vel.setLength(vmax); }
+    }
+    if (this.pointers.size) this.start(null); else this.mode = null;
+  }
+  wheel(e){
+    e.preventDefault(); this.anim = null; this.vel.set(0,0);
+    const k = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
+    const f = Math.exp(e.deltaY * k * (e.ctrlKey ? 0.01 : 0.0015));   // ctrl+wheel = trackpad pinch
+    this.zoomAt(e.clientX, e.clientY, Math.min(2, Math.max(0.5, f)));
+  }
+  key(e){
+    const r = this.el.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2, step = r.height*0.15;
+    const pan = (x, y)=>{ const g = this.ground(cx, cy); this.keep(g, cx - x, cy - y); };
+    const map = {ArrowLeft:()=>e.shiftKey ? (this.az += 0.15, this.apply()) : pan(-step, 0), ArrowRight:()=>e.shiftKey ? (this.az -= 0.15, this.apply()) : pan(step, 0),
+                 ArrowUp:()=>e.shiftKey ? (this.tilt += 0.08, this.apply()) : pan(0, -step), ArrowDown:()=>e.shiftKey ? (this.tilt -= 0.08, this.apply()) : pan(0, step),
+                 "+":()=>this.zoomAt(cx, cy, 0.6, true), "=":()=>this.zoomAt(cx, cy, 0.6, true), "-":()=>this.zoomAt(cx, cy, 1/0.6, true)};
+    if (map[e.key]){ e.preventDefault(); map[e.key](); }
+  }
+  north(){ this.turn = {az0: this.az, az1: Math.round(this.az/(2*Math.PI))*2*Math.PI, t0: performance.now()}; }
+  update(){
+    const now = performance.now();
+    if (this.vel.lengthSq() > 1e-6 && !this.pointers.size){
+      const dt = Math.min(48, now - (this._t || now));
+      this.target.x += this.vel.x*dt; this.target.z += this.vel.y*dt; this.vel.multiplyScalar(Math.pow(0.0025, dt/1000)); this.apply();
+    } else this.vel.set(0,0);
+    if (this.anim){                        // smooth zoom for double tap / keys
+      const a = this.anim, k = Math.min(1, (now - a.t0)/260), e = 1 - Math.pow(1-k, 3);
+      const want = Math.pow(a.f, e), step = want / a.done; a.done = want;
+      this.zoomAt(a.x, a.y, step); if (k >= 1) this.anim = null;
+    }
+    if (this.turn){
+      const k = Math.min(1, (now - this.turn.t0)/350), e = 1 - Math.pow(1-k, 3);
+      this.az = this.turn.az0 + (this.turn.az1 - this.turn.az0)*e; this.apply(); if (k >= 1) this.turn = null;
+    }
+    this._t = now;
+    const changed = this.dirty; this.dirty = false;
+    if (changed) this.dispatchEvent({type:"change"});
+    return changed;
+  }
+}
 const HOME = homeView();
-const controls = new THREE.OrbitControls(camera, canvas);
-controls.target.copy(HOME);
-controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI*0.47; controls.minDistance = 250; controls.maxDistance = 60000;
-controls.screenSpacePanning = false;
+const controls = new MapNav(camera, canvas);
+controls.setFrom(HOME);
+canvas.tabIndex = 0;
 
 /* zone state uniform: 0 = off, 1 = on, 0.5 = no data */
 const uState = { value: new Array(64).fill(0.5) };
@@ -858,9 +1013,18 @@ function trPick(ev){                      // vehicle under the pointer, if any
 
 /* ---------- render loop ---------- */
 let animate = true, needs = true;
-controls.addEventListener("change", ()=> needs=true);
+controls.addEventListener("change", ()=>{
+  needs=true;
+  const nA = controls.target.clone().project(camera), nB = controls.target.clone().add(new THREE.Vector3(0,0,-1000)).project(camera);
+  const nDeg = Math.atan2((nB.x-nA.x)*innerWidth, (nB.y-nA.y)*innerHeight)*180/Math.PI;   // where north points on screen
+  $("needle").style.transform = `rotate(${nDeg.toFixed(1)}deg)`;
+  const a = Math.abs(Math.atan2(Math.sin(controls.az), Math.cos(controls.az)));
+  document.querySelector(".compass").classList.toggle("north-up", a < 0.035);
+});
+$("north").onclick = ()=> controls.north();
 function resize(){
-  const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h;
+  const w=innerWidth,h=innerHeight;
+  const dk=document.querySelector(".dock"); if(dk) document.documentElement.style.setProperty("--dock-h", dk.offsetHeight+"px"); renderer.setSize(w,h,false); camera.aspect=w/h;
   camera.fov = w<640 ? 52 : 40; camera.updateProjectionMatrix(); drawStrip(); needs=true;
 }
 addEventListener("resize", resize);
