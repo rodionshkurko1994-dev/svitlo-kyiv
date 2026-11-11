@@ -1,5 +1,7 @@
 name: GTFS probe (тимчасово)
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -10,8 +12,8 @@ jobs:
           curl -sS -m 300 -L -o out/official.zip -w "official %{http_code} %{size_download}\n" "http://193.23.225.211:8002/export-gtfs-static" || true
           curl -sS -m 300 -L -o out/mdb.zip -w "mdb %{http_code} %{size_download}\n" "https://files.mobilitydatabase.org/mdb-3230/latest.zip" || true
           ls -la out; for f in out/*.zip; do unzip -l "$f" || true; done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gtfs
-          path: out/
-          retention-days: 3
+      - name: Push to temporary branch gtfs-probe
+        run: |
+          cd out && rm -f mdb.zip && git init -q -b gtfs-probe && git add official.zip
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Kyiv GTFS snapshot for inspection"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gtfs-probe
