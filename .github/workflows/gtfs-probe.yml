@@ -1,0 +1,17 @@
+name: GTFS probe (тимчасово)
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Kyiv GTFS
+        run: |
+          mkdir out
+          curl -sS -m 300 -L -o out/official.zip -w "official %{http_code} %{size_download}\n" "http://193.23.225.211:8002/export-gtfs-static" || true
+          curl -sS -m 300 -L -o out/mdb.zip -w "mdb %{http_code} %{size_download}\n" "https://files.mobilitydatabase.org/mdb-3230/latest.zip" || true
+          ls -la out; for f in out/*.zip; do unzip -l "$f" || true; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gtfs
+          path: out/
+          retention-days: 3
