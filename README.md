@@ -1,4 +1,4 @@
-# Світло Києва
+# Cyber Kyiv
 
 **Сайт:** https://svitlo-kyiv.online
 

@@ -68,7 +68,7 @@ jobs:
       - name: Commit new data
         if: steps.fetch.outputs.result == 'changed' || steps.transit.outputs.result == 'changed'
         run: |
-          git config user.name "svitlo-kyiv bot"
+          git config user.name "cyber-kyiv bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add schedule.json transit.bin
           git commit -m "Оновлено графік YASNO / розклад транспорту"

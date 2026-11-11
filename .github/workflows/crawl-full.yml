@@ -37,7 +37,7 @@ jobs:
         if: steps.crawl.outputs.skip != '1'
         run: |
           B="${{ github.event.inputs.batch }}"
-          git config user.name "svitlo-kyiv bot"
+          git config user.name "cyber-kyiv bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "data/full/groups_$B.json" "data/full/streets_cache_$B.json"
           git commit -m "Обхід адрес YASNO: частина $B" || true

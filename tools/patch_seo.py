@@ -14,7 +14,7 @@ def rep(old, new):
     s = s.replace(old, new, 1)
 
 URL = "https://svitlo-kyiv.online/"
-TITLE = "Відключення світла Київ — графік і карта онлайн | Світло Києва"
+TITLE = "Відключення світла Київ — графік і карта онлайн | Cyber Kyiv"
 DESC = ("Де зараз є світло в Києві: 3D-карта відключень по кожному будинку за графіками YASNO (ДТЕК). "
         "Оновлення кожні 15 хвилин, прогноз на 48 годин, екстрені відключення.")
 SHORT = "3D-карта Києва: у яких будинках зараз є світло, а в яких ні, за графіками відключень YASNO (ДТЕК)."
@@ -49,9 +49,9 @@ def plain(h):
 ld = {
     "@context": "https://schema.org",
     "@graph": [
-        {"@type": "WebSite", "@id": URL + "#website", "url": URL, "name": "Світло Києва",
+        {"@type": "WebSite", "@id": URL + "#website", "url": URL, "name": "Cyber Kyiv",
          "alternateName": ["Svitlo Kyiv", "Карта відключень світла Київ"], "inLanguage": "uk"},
-        {"@type": "WebApplication", "@id": URL + "#app", "name": "Світло Києва — карта відключень світла",
+        {"@type": "WebApplication", "@id": URL + "#app", "name": "Cyber Kyiv — карта відключень світла",
          "url": URL, "description": DESC, "inLanguage": "uk",
          "applicationCategory": "UtilitiesApplication", "operatingSystem": "Any", "browserRequirements": "WebGL",
          "isAccessibleForFree": True, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "UAH"},
@@ -70,7 +70,7 @@ s = s[:a] + f'''<meta name="description" content="{DESC}">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <link rel="canonical" href="{URL}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Світло Києва">
+<meta property="og:site_name" content="Cyber Kyiv">
 <meta property="og:locale" content="uk_UA">
 <meta property="og:url" content="{URL}">
 <meta property="og:title" content="Відключення світла Київ — карта онлайн">
