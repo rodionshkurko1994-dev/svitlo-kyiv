@@ -37,28 +37,56 @@ jobs:
           echo "$result"
           echo "result=$result" >> "$GITHUB_OUTPUT"
 
-      - name: Commit new schedule
-        if: steps.fetch.outputs.result == 'changed'
+      - name: Today's date in Kyiv
+        id: day
+        run: echo "d=$(TZ=Europe/Kyiv date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Remember the daily transport check
+        id: tcache
+        uses: actions/cache@v4
+        with:
+          path: .transit-checked
+          key: transit-${{ steps.day.outputs.d }}
+
+      - name: Update transport timetable (once a day)
+        id: transit
+        if: steps.tcache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          curl -sS -m 300 -fL -o /tmp/gtfs.zip "http://193.23.225.211:8002/export-gtfs-static" \
+            || curl -sS -m 300 -fL -o /tmp/gtfs.zip "https://files.mobilitydatabase.org/mdb-3230/latest.zip"
+          pip install -q numpy scipy
+          python3 scripts/build_transit.py /tmp/gtfs.zip /tmp/transit.bin
+          if python3 scripts/build_transit.py --same /tmp/transit.bin transit.bin; then
+            echo "timetable unchanged"
+          else
+            cp /tmp/transit.bin transit.bin
+            echo "result=changed" >> "$GITHUB_OUTPUT"
+          fi
+          touch .transit-checked
+
+      - name: Commit new data
+        if: steps.fetch.outputs.result == 'changed' || steps.transit.outputs.result == 'changed'
         run: |
           git config user.name "svitlo-kyiv bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add schedule.json
-          git commit -m "Оновлено графік YASNO"
+          git add schedule.json transit.bin
+          git commit -m "Оновлено графік YASNO / розклад транспорту"
           git push
 
       - name: Prepare site
-        if: steps.fetch.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
+        if: steps.fetch.outputs.result == 'changed' || steps.transit.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
         run: |
           mkdir -p _site
-          cp index.html city_v2.txt schedule.json favicon.ico favicon-32.png favicon-192.png apple-touch-icon.png og-image.png robots.txt google6b190d4f7e780958.html _site/
+          cp index.html city_v2.txt schedule.json favicon.ico favicon-32.png favicon-192.png apple-touch-icon.png og-image.png robots.txt google6b190d4f7e780958.html transit.bin _site/
           if [ -f CNAME ]; then cp CNAME _site/; fi
           python3 scripts/build_site.py _site
 
       - uses: actions/upload-pages-artifact@v3
-        if: steps.fetch.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
+        if: steps.fetch.outputs.result == 'changed' || steps.transit.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
         with:
           path: _site
 
       - uses: actions/deploy-pages@v4
         id: deploy
-        if: steps.fetch.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
+        if: steps.fetch.outputs.result == 'changed' || steps.transit.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
