@@ -362,6 +362,12 @@ class MapNav extends THREE.EventDispatcher {
     el.addEventListener("pointermove", e=>this.move(e));
     el.addEventListener("pointerup", e=>this.up(e));
     el.addEventListener("pointercancel", e=>this.up(e));
+    el.addEventListener("lostpointercapture", e=>this.up(e));
+    // the release of a right-button drag can be swallowed by the context menu: end the drag on any
+    // sign that no mouse button is held any more
+    addEventListener("pointerup", e=>this.up(e));
+    addEventListener("mouseup", e=>{ if (!e.buttons) this.endMouse(); });
+    addEventListener("blur", ()=>this.endMouse());
     el.addEventListener("wheel", e=>this.wheel(e), {passive:false});
     el.addEventListener("contextmenu", e=>e.preventDefault());
     el.addEventListener("dblclick", e=>{ if(e.pointerType!=="touch") this.zoomAt(e.clientX, e.clientY, 0.5, true); });
@@ -401,7 +407,7 @@ class MapNav extends THREE.EventDispatcher {
     this.el.focus({preventScroll:true});
     this.el.setPointerCapture && this.el.setPointerCapture(e.pointerId);
     this.vel.set(0,0); this.anim = null;
-    this.pointers.set(e.pointerId, {x:e.clientX, y:e.clientY, t:performance.now()});
+    this.pointers.set(e.pointerId, {x:e.clientX, y:e.clientY, t:performance.now(), mouse: e.pointerType === "mouse"});
     const rot = e.pointerType === "mouse" && (e.button === 2 || e.ctrlKey || e.shiftKey || e.metaKey);
     this.start(rot ? "rotate" : null);
     if (e.pointerType === "touch" && this.pointers.size === 1){
@@ -421,8 +427,12 @@ class MapNav extends THREE.EventDispatcher {
       this.f0 = P.slice(0, 2).map(q => ({x:q.x, y:q.y}));
     }
   }
+  endMouse(){
+    for (const [id, q] of this.pointers) if (q.mouse) this.up({pointerId: id});
+  }
   move(e){
     const p = this.pointers.get(e.pointerId); if (!p) return;
+    if (p.mouse && e.buttons === 0){ this.up(e); return; }   // button already released
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY; p.t = performance.now();
     if (this.mode === "pan" && this.pointers.size === 1){
