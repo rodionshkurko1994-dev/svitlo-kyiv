@@ -80,6 +80,13 @@ h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:20px;letter-s
 .bar.em{background:#4a3f63}
 .note{font-size:12.5px;line-height:1.5;color:var(--muted);margin:0}
 .note strong{color:var(--ink);font-weight:500}
+.notice{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;padding:9px 6px 9px 11px;border-radius:9px;border:1px solid}
+.notice span{flex:1}.notice a{color:inherit;font-weight:600}
+.notice button{flex:none;background:none;border:0;color:inherit;font-size:18px;line-height:1;padding:0 4px;cursor:pointer;opacity:.75}
+.notice button:hover{opacity:1}
+.notice.info{color:#bcd0ff;border-color:rgba(143,166,255,.45);background:rgba(143,166,255,.10)}
+.notice.warning{color:var(--warn);border-color:rgba(255,207,90,.45);background:rgba(255,207,90,.08)}
+.notice.important{color:#ffb3a8;border-color:rgba(255,107,107,.5);background:rgba(255,107,107,.10)}
 .banner{font-size:12.5px;line-height:1.45;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,207,90,.45);color:var(--warn);background:rgba(255,207,90,.07)}
 details{border-top:1px solid var(--line);padding-top:10px}
 summary{cursor:pointer;font-size:13px;font-weight:500;color:var(--ink);list-style:none;display:flex;justify-content:space-between}
@@ -204,6 +211,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
     <h1>Cyber Kyiv</h1>
     <span class="head-r"><span class="tag plan" id="modeTag">графік</span><a class="tag donate" data-goatcounter-click="donate" data-goatcounter-title="Кнопка Донат" href="https://send.monobank.ua/jar/3ozLFFRT2g" target="_blank" rel="noopener" title="Підтримати проєкт (банка monobank)"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path fill="currentColor" d="M8 14.2 6.9 13.2C3 9.7.5 7.4.5 4.6.5 2.3 2.3.6 4.5.6c1.3 0 2.5.6 3.5 1.6C9 1.2 10.2.6 11.5.6c2.2 0 4 1.7 4 4 0 2.8-2.5 5.1-6.4 8.6z"/></svg>Донат</a></span>
   </div>
+  <div class="notice" id="notice" role="status" hidden><span id="noticeText"></span><button type="button" id="noticeX" aria-label="Закрити оголошення">×</button></div>
   <div class="clock"><b id="clk">--:--</b><span id="day">—</span></div>
   <div class="split">
     <div class="stat"><span class="k"><i class="sw on"></i>Світло є</span><span class="v" id="nOn">—</span></div>
@@ -815,6 +823,22 @@ async function pullSchedule(){
   }catch(e){}
 }
 pullSchedule(); setInterval(pullSchedule, 5*60*1000);
+
+/* ---------- announcement set in the admin page ---------- */
+async function pullNotice(){
+  try{
+    const a = await (await fetch("announcement.json?t=" + Math.floor(Date.now()/60000), {cache:"no-store"})).json();
+    const key = "ck_notice_closed", id = (a.updated || "") + "|" + (a.text || "");
+    let closed = ""; try{ closed = localStorage.getItem(key) || ""; }catch(e){}
+    const live = a.enabled && a.text && (!a.until || new Date(a.until) > new Date()) && closed !== id;
+    const box = $("notice"); box.hidden = !live; if (!live) return;
+    box.className = "notice " + (["info","warning","important"].includes(a.kind) ? a.kind : "info");
+    const t = $("noticeText"); t.textContent = a.text;
+    if (a.link && /^https:\/\//.test(a.link)){ const l = document.createElement("a"); l.href = a.link; l.target = "_blank"; l.rel = "noopener"; l.textContent = a.linkText || "Детальніше"; t.append(" ", l); }
+    $("noticeX").onclick = () => { box.hidden = true; try{ localStorage.setItem(key, id); }catch(e){} };
+  }catch(e){}
+}
+pullNotice(); setInterval(pullNotice, 5*60*1000);
 
 /* ---------- hover / tap: ground point -> quarter ---------- */
 const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(), tip=$("tip"), plane=new THREE.Plane(new THREE.Vector3(0,1,0),-10), hit=new THREE.Vector3();

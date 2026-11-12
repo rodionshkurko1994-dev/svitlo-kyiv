@@ -10,6 +10,9 @@ on:
       force:
         description: "Опублікувати сайт, навіть якщо графік не змінився"
         default: "no"
+      transit:
+        description: "Оновити розклад транспорту, навіть якщо сьогодні вже оновлювали"
+        default: "no"
 
 permissions:
   contents: write
@@ -50,7 +53,7 @@ jobs:
 
       - name: Update transport timetable (once a day)
         id: transit
-        if: steps.tcache.outputs.cache-hit != 'true'
+        if: steps.tcache.outputs.cache-hit != 'true' || inputs.transit == 'yes'
         continue-on-error: true
         run: |
           curl -sS -m 300 -fL -o /tmp/gtfs.zip "http://193.23.225.211:8002/export-gtfs-static" \
@@ -78,7 +81,8 @@ jobs:
         if: steps.fetch.outputs.result == 'changed' || steps.transit.outputs.result == 'changed' || github.event_name == 'push' || inputs.force == 'yes'
         run: |
           mkdir -p _site
-          cp index.html city_v2.txt schedule.json favicon.ico favicon-32.png favicon-192.png apple-touch-icon.png og-image.png robots.txt google6b190d4f7e780958.html transit.bin _site/
+          cp index.html city_v2.txt schedule.json favicon.ico favicon-32.png favicon-192.png apple-touch-icon.png og-image.png robots.txt google6b190d4f7e780958.html transit.bin announcement.json _site/
+          cp -r admin _site/
           if [ -f CNAME ]; then cp CNAME _site/; fi
           python3 scripts/build_site.py _site
 

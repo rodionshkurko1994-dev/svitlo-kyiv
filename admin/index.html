@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Адмінка · Cyber Kyiv</title>
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --night:#070b17; --panel:#0c1225; --panel2:#101830; --line:rgba(150,170,230,.18); --ink:#e8ecf8; --muted:#8e98b8;
+  --on:#ff9636; --off-ink:#8fa6ff; --warn:#ffcf5a; --bad:#ff6b6b; --ok:#5fd3a0;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif; --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--night);color:var(--ink);font:15px/1.5 var(--f-body);padding:0 16px 48px}
+[hidden]{display:none!important}
+a{color:var(--off-ink)}
+header{max-width:980px;margin:0 auto;padding:22px 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font:700 20px/1.2 var(--f-display);margin:0}
+h1 small{font:500 12px var(--f-mono);color:var(--muted);margin-left:8px;letter-spacing:.06em;text-transform:uppercase}
+h2{font:600 15px/1.3 var(--f-body);margin:0 0 12px;letter-spacing:.01em}
+main{max-width:980px;margin:0 auto;display:grid;gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi .k{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font:500 18px/1.3 var(--f-mono);margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+button,.btn{font:500 14px var(--f-body);color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+button:hover{border-color:rgba(150,170,230,.45)}
+button.primary{background:var(--on);color:#1a0f02;border-color:var(--on);font-weight:600}
+button.danger{color:var(--bad);border-color:rgba(255,107,107,.4)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--on);outline-offset:2px}
+.actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.action{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.action p{margin:0;font-size:13px;color:var(--muted)}
+.action button{align-self:flex-start}
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+input,textarea,select{width:100%;font:15px var(--f-body);color:var(--ink);background:var(--night);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+textarea{min-height:84px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:600px){.row{grid-template-columns:1fr}}
+.form{display:grid;gap:12px}
+.check{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px}
+.check input{width:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+td.mono{font-family:var(--f-mono);font-size:12.5px;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+.pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+.pill.success{color:var(--ok);border-color:rgba(95,211,160,.4)} .pill.failure{color:var(--bad);border-color:rgba(255,107,107,.4)}
+.pill.running{color:var(--warn);border-color:rgba(255,207,90,.4)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:14px;max-width:calc(100% - 32px);z-index:5}
+.note{font-size:13px;color:var(--muted);margin:8px 0 0}
+.preview{margin-top:4px}
+.ann{font-size:13px;line-height:1.45;padding:9px 11px;border-radius:9px;border:1px solid;display:flex;gap:8px;max-width:360px}
+.ann.info{color:#bcd0ff;border-color:rgba(143,166,255,.45);background:rgba(143,166,255,.10)}
+.ann.warning{color:var(--warn);border-color:rgba(255,207,90,.45);background:rgba(255,207,90,.08)}
+.ann.important{color:#ffb3a8;border-color:rgba(255,107,107,.5);background:rgba(255,107,107,.10)}
+.ann a{color:inherit;font-weight:600}
+.chart{display:flex;align-items:flex-end;gap:3px;height:120px;margin-top:8px}
+.chart i{flex:1;background:var(--on);border-radius:3px 3px 0 0;min-height:2px;opacity:.85;position:relative}
+.chart i:hover{opacity:1}
+.login{max-width:520px;margin:10vh auto 0}
+.login ol{padding-left:20px;color:var(--muted);font-size:13.5px}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--panel2);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cyber Kyiv <small>адмінка</small></h1>
+  <div id="who" hidden><a class="btn" href="../" target="_blank" rel="noopener">Відкрити сайт</a> <button type="button" id="logout">Вийти</button></div>
+</header>
+
+<!-- login -->
+<section class="card login" id="loginCard" hidden>
+  <h2>Вхід</h2>
+  <form class="form" id="loginForm">
+    <div><label for="token">GitHub-токен</label><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…" required></div>
+    <button class="primary" type="submit">Увійти</button>
+    <p class="note" id="loginErr" hidden></p>
+  </form>
+  <p class="note">Токен зберігається лише в цьому браузері й надсилається тільки на api.github.com. Як створити:</p>
+  <ol>
+    <li>GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token.</li>
+    <li>Repository access: <b>Only select repositories</b> → <code>svitlo-kyiv</code>.</li>
+    <li>Permissions: <b>Actions</b> — Read and write, <b>Contents</b> — Read and write.</li>
+  </ol>
+</section>
+
+<main id="app" hidden>
+  <section class="card">
+    <h2>Стан сайту</h2>
+    <div class="grid">
+      <div class="kpi"><div class="k">Графік YASNO</div><div class="v" id="sSched">—</div><div class="s" id="sSchedS"></div></div>
+      <div class="kpi"><div class="k">Режим</div><div class="v" id="sMode">—</div><div class="s" id="sModeS"></div></div>
+      <div class="kpi"><div class="k">Розклад транспорту</div><div class="v" id="sTr">—</div><div class="s" id="sTrS"></div></div>
+      <div class="kpi"><div class="k">Оголошення</div><div class="v" id="sAnn">—</div><div class="s" id="sAnnS"></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Статистика відвідувань</h2>
+    <div id="statsBox"><p class="note">Підключається…</p></div>
+  </section>
+
+  <section class="card">
+    <h2>Керування</h2>
+    <div class="actions">
+      <div class="action"><b>Оновити графік і сайт</b><p>Завантажити свіжий графік YASNO й одразу опублікувати сайт. Займає ~1 хвилину.</p><button type="button" data-run="site">Запустити</button></div>
+      <div class="action"><b>Оновити розклад транспорту</b><p>Завантажити свіжий розклад Київпастрансу, навіть якщо сьогодні вже оновлювали. ~2 хвилини.</p><button type="button" data-run="transit">Запустити</button></div>
+      <div class="action"><b>Перефарбувати карту</b><p>Заново розкласти будинки за вже зібраними групами адрес і опублікувати. ~3 хвилини.</p><button type="button" data-run="apply">Запустити</button></div>
+      <div class="action"><b>Повний обхід адрес</b><p>Заново запитати групу для всіх ~30 тис. адрес у YASNO. Йде кілька годин частинами, потім карта перефарбується сама.</p><button type="button" class="danger" data-run="crawl">Запустити</button></div>
+    </div>
+    <h2 style="margin-top:20px">Останні запуски</h2>
+    <div class="tablewrap"><table><thead><tr><th>Що</th><th>Як запущено</th><th>Стан</th><th>Коли</th><th></th></tr></thead><tbody id="runs"><tr><td colspan="5" class="note">Завантаження…</td></tr></tbody></table></div>
+  </section>
+
+  <section class="card">
+    <h2>Оголошення на сайті</h2>
+    <form class="form" id="annForm">
+      <div><label for="aText">Текст (до 280 символів)</label><textarea id="aText" maxlength="280" placeholder="Наприклад: Технічні роботи до 18:00, графік може оновлюватися із затримкою."></textarea></div>
+      <div class="row">
+        <div><label for="aKind">Тип</label><select id="aKind"><option value="info">Інформація</option><option value="warning">Попередження</option><option value="important">Важливо</option></select></div>
+        <div><label for="aUntil">Показувати до (необов'язково)</label><input id="aUntil" type="datetime-local"></div>
+      </div>
+      <div class="row">
+        <div><label for="aLink">Посилання (необов'язково)</label><input id="aLink" type="url" placeholder="https://t.me/..."></div>
+        <div><label for="aLinkText">Текст посилання</label><input id="aLinkText" maxlength="40" placeholder="Детальніше"></div>
+      </div>
+      <label class="check"><input id="aOn" type="checkbox" checked> Показувати на сайті</label>
+      <div><label>Як виглядатиме</label><div class="preview" id="aPreview"></div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="primary" type="submit" id="aSave">Опублікувати</button><button type="button" id="aOff">Прибрати оголошення</button></div>
+      <p class="note">Після збереження сайт оновлюється приблизно за хвилину. Відвідувачі можуть закрити оголошення хрестиком; нове оголошення з'явиться знову.</p>
+    </form>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const OWNER = "rodionshkurko1994-dev", REPO = "svitlo-kyiv", API = "https://api.github.com";
+const STATS = { url: "https://pvxjbnxuwtuvvpmvylhv.supabase.co", key: "sb_publishable_buC6-JQeE4-VQO_S1Ml0Sw_xIrxjKjT", site: "cyber-kyiv.online", rpc: "" };
+const $ = id => document.getElementById(id);
+let TOKEN = "";
+try { TOKEN = localStorage.getItem("ck_admin_token") || ""; } catch(e) {}
+
+const fmt = iso => { if(!iso) return "—"; const d = new Date(iso); return d.toLocaleString("uk-UA", {timeZone:"Europe/Kyiv", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}); };
+const ago = iso => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return m < 1 ? "щойно" : m < 60 ? `${m} хв тому` : m < 1440 ? `${Math.floor(m/60)} год ${m%60} хв тому` : `${Math.floor(m/1440)} д тому`; };
+function toast(msg, ms=4000){ const t=$("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true, ms); }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function gh(path, opts={}){
+  const r = await fetch(API + path, {...opts, headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+TOKEN,"X-GitHub-Api-Version":"2022-11-28", ...(opts.headers||{})}});
+  if (r.status === 204) return null;
+  const body = await r.json().catch(()=>({}));
+  if (!r.ok) { const e = new Error(body.message || ("HTTP " + r.status)); e.status = r.status; throw e; }
+  return body;
+}
+
+/* ---------- login ---------- */
+async function enter(){
+  try { await gh(`/repos/${OWNER}/${REPO}`); }
+  catch(e){ showLogin(e.status === 401 ? "Токен не підходить або протермінований." : e.status === 404 ? "Токен не має доступу до репозиторію svitlo-kyiv." : "Не вдалося з'єднатися з GitHub: " + e.message); return; }
+  $("loginCard").hidden = true; $("app").hidden = false; $("who").hidden = false;
+  refreshAll(); setInterval(refreshAll, 60000);
+}
+function showLogin(err){ $("app").hidden = true; $("who").hidden = true; $("loginCard").hidden = false; const e=$("loginErr"); e.hidden=!err; e.textContent=err||""; e.className = "note bad"; }
+$("loginForm").onsubmit = e => { e.preventDefault(); TOKEN = $("token").value.trim(); try{ localStorage.setItem("ck_admin_token", TOKEN); }catch(_){} $("token").value=""; enter(); };
+$("logout").onclick = () => { try{ localStorage.removeItem("ck_admin_token"); }catch(_){} TOKEN = ""; showLogin(); };
+
+/* ---------- status ---------- */
+async function loadStatus(){
+  try{
+    const s = await (await fetch("../schedule.json?t=" + Date.now(), {cache:"no-store"})).json();
+    $("sSched").textContent = fmt(s.fetchedAt); $("sSchedS").textContent = "отримано " + ago(s.fetchedAt);
+    const st = {}; for (const g of Object.values(s.raw || {})) { const x = (g.today||{}).status || "—"; st[x] = (st[x]||0) + 1; }
+    const em = Object.keys(st).some(k => /Emergency/i.test(k)), wait = st.WaitingForSchedule;
+    $("sMode").innerHTML = em ? '<span class="warn">Екстрені відключення</span>' : st.ScheduleApplies ? '<span class="ok">Графіки діють</span>' : '<span class="warn">Немає графіка</span>';
+    $("sModeS").textContent = Object.entries(st).map(([k,v]) => `${k}: ${v}`).join(" · ");
+  }catch(e){ $("sSched").textContent = "помилка"; }
+  try{
+    const b = await (await fetch("../transit.bin?t=" + Date.now(), {cache:"no-store"})).arrayBuffer();
+    const n = new DataView(b).getUint32(0, true), h = JSON.parse(new TextDecoder().decode(new Uint8Array(b, 4, n)));
+    $("sTr").textContent = fmt(h.built); $("sTrS").textContent = `${h.trips.toLocaleString("uk-UA")} рейсів, ${h.routes.length} маршрутів`;
+  }catch(e){ $("sTr").textContent = "—"; }
+  try{
+    const a = await (await fetch("../announcement.json?t=" + Date.now(), {cache:"no-store"})).json();
+    const live = a.enabled && a.text && (!a.until || new Date(a.until) > new Date());
+    $("sAnn").innerHTML = live ? '<span class="ok">Показується</span>' : "Немає";
+    $("sAnnS").textContent = live ? a.text.slice(0, 60) + (a.text.length > 60 ? "…" : "") : "";
+    if (!annTouched) fillAnn(a);
+  }catch(e){ $("sAnn").textContent = "Немає"; }
+}
+
+/* ---------- runs ---------- */
+const NAMES = {"site.yml":"Графік і сайт","apply-groups.yml":"Перефарбування карти","crawl-full.yml":"Обхід адрес","crawl-weekly.yml":"Повний обхід адрес","crawl.yml":"Тестовий обхід"};
+const EVENTS = {schedule:"за розкладом", workflow_dispatch:"вручну / cron-job.org", push:"зміна коду"};
+async function loadRuns(){
+  try{
+    const r = await gh(`/repos/${OWNER}/${REPO}/actions/runs?per_page=12`);
+    $("runs").innerHTML = r.workflow_runs.map(x => {
+      const file = (x.path||"").split("/").pop(), st = x.status !== "completed" ? ["running","виконується"] : x.conclusion === "success" ? ["success","успішно"] : x.conclusion === "skipped" ? ["","пропущено"] : ["failure", x.conclusion === "cancelled" ? "скасовано" : "помилка"];
+      return `<tr><td>${esc(NAMES[file] || x.name)}</td><td>${esc(EVENTS[x.event] || x.event)}</td><td><span class="pill ${st[0]}">${st[1]}</span></td><td class="mono">${fmt(x.created_at)}</td><td><a href="${x.html_url}" target="_blank" rel="noopener">журнал</a></td></tr>`;
+    }).join("");
+  }catch(e){ $("runs").innerHTML = `<tr><td colspan="5" class="bad">Не вдалося завантажити: ${esc(e.message)}</td></tr>`; }
+}
+
+/* ---------- actions ---------- */
+const RUNS = {
+  site:    {wf:"site.yml", inputs:{force:"yes"}, ask:null},
+  transit: {wf:"site.yml", inputs:{force:"yes", transit:"yes"}, ask:null},
+  apply:   {wf:"apply-groups.yml", inputs:{}, ask:"Перефарбувати карту за зібраними групами адрес?"},
+  crawl:   {wf:"crawl-weekly.yml", inputs:{}, ask:"Запустити повний обхід ~30 тис. адрес? Це триватиме кілька годин."},
+};
+document.querySelectorAll("[data-run]").forEach(b => b.onclick = async () => {
+  const a = RUNS[b.dataset.run];
+  if (a.ask && !confirm(a.ask)) return;
+  b.disabled = true;
+  try{
+    await gh(`/repos/${OWNER}/${REPO}/actions/workflows/${a.wf}/dispatches`, {method:"POST", body:JSON.stringify({ref:"main", inputs:a.inputs})});
+    toast("Запущено. Стан з'явиться в таблиці за кілька секунд.");
+    setTimeout(loadRuns, 4000); setTimeout(loadRuns, 15000);
+  }catch(e){ toast(e.status === 403 ? "Токену бракує дозволу Actions: Read and write." : "Не вдалося запустити: " + e.message, 6000); }
+  setTimeout(()=> b.disabled = false, 8000);
+});
+
+/* ---------- announcement ---------- */
+let annTouched = false;
+function readAnn(){
+  const until = $("aUntil").value ? new Date($("aUntil").value).toISOString() : "";
+  return {enabled: $("aOn").checked, text: $("aText").value.trim(), kind: $("aKind").value, link: $("aLink").value.trim(), linkText: $("aLinkText").value.trim(), until, updated: new Date().toISOString()};
+}
+function fillAnn(a){
+  $("aText").value = a.text || ""; $("aKind").value = a.kind || "info"; $("aLink").value = a.link || ""; $("aLinkText").value = a.linkText || "";
+  $("aOn").checked = a.enabled !== false;
+  if (a.until){ const d = new Date(a.until), p = n => String(n).padStart(2,"0"); $("aUntil").value = `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; } else $("aUntil").value = "";
+  preview();
+}
+function preview(){
+  const a = readAnn();
+  $("aPreview").innerHTML = a.text ? `<div class="ann ${a.kind}"><span>${esc(a.text)}${a.link ? ` <a href="${esc(a.link)}" target="_blank" rel="noopener">${esc(a.linkText || "Детальніше")}</a>` : ""}</span></div>` : '<p class="note">Порожньо</p>';
+}
+["aText","aKind","aLink","aLinkText","aUntil","aOn"].forEach(id => $(id).addEventListener("input", ()=>{ annTouched = true; preview(); }));
+async function saveAnn(a, msg){
+  const path = `/repos/${OWNER}/${REPO}/contents/announcement.json`;
+  let sha; try { sha = (await gh(path + "?ref=main")).sha; } catch(e) { if (e.status !== 404) throw e; }
+  const content = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(a, null, 2) + "\n")));
+  await gh(path, {method:"PUT", body: JSON.stringify({message: msg, content, sha, branch:"main"})});
+}
+$("annForm").onsubmit = async e => {
+  e.preventDefault();
+  const a = readAnn();
+  if (a.enabled && !a.text){ toast("Напиши текст оголошення."); return; }
+  if (a.link && !/^https:\/\//.test(a.link)){ toast("Посилання має починатися з https://"); return; }
+  $("aSave").disabled = true;
+  try{ await saveAnn(a, a.enabled ? "Оголошення: " + a.text.slice(0, 60) : "Оголошення вимкнено"); annTouched = false; toast("Збережено. На сайті з'явиться приблизно за хвилину."); setTimeout(loadRuns, 5000); }
+  catch(e){ toast(e.status === 403 ? "Токену бракує дозволу Contents: Read and write." : "Не вдалося зберегти: " + e.message, 6000); }
+  $("aSave").disabled = false;
+};
+$("aOff").onclick = async () => {
+  if (!confirm("Прибрати оголошення з сайту?")) return;
+  try{ await saveAnn({...readAnn(), enabled:false}, "Оголошення вимкнено"); $("aOn").checked = false; annTouched = false; preview(); toast("Оголошення прибрано. Сайт оновиться приблизно за хвилину."); }
+  catch(e){ toast("Не вдалося: " + e.message, 6000); }
+};
+
+/* ---------- visit statistics ---------- */
+async function loadStats(){
+  const box = $("statsBox");
+  if (!STATS.rpc){ box.innerHTML = '<p class="note">Лічильник відвідувань на сайті вже працює (база Supabase). Щоб бачити цифри тут, потрібна функція для читання статистики в цій базі — її ще треба додати.</p>'; return; }
+  try{
+    const r = await fetch(`${STATS.url}/rest/v1/rpc/${STATS.rpc}`, {method:"POST", headers:{"apikey":STATS.key,"Authorization":"Bearer "+STATS.key,"Content-Type":"application/json"}, body: JSON.stringify({p_site: STATS.site, p_days: 30})});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const s = await r.json(), days = s.daily || [];
+    const max = Math.max(1, ...days.map(d => d.views));
+    box.innerHTML = `<div class="grid">
+        <div class="kpi"><div class="k">Сьогодні</div><div class="v">${(s.today_views||0).toLocaleString("uk-UA")}</div><div class="s">${(s.today_visitors||0).toLocaleString("uk-UA")} відвідувачів</div></div>
+        <div class="kpi"><div class="k">7 днів</div><div class="v">${(s.week_views||0).toLocaleString("uk-UA")}</div><div class="s">${(s.week_visitors||0).toLocaleString("uk-UA")} відвідувачів</div></div>
+        <div class="kpi"><div class="k">30 днів</div><div class="v">${(s.month_views||0).toLocaleString("uk-UA")}</div><div class="s">${(s.month_visitors||0).toLocaleString("uk-UA")} відвідувачів</div></div>
+        <div class="kpi"><div class="k">Зараз на сайті</div><div class="v">${(s.live||0).toLocaleString("uk-UA")}</div><div class="s">за останні 5 хвилин</div></div>
+      </div>
+      <div class="chart" role="img" aria-label="Перегляди по днях за 30 днів">${days.map(d => `<i style="height:${Math.round(d.views/max*100)}%" title="${esc(d.day)}: ${d.views} переглядів, ${d.visitors} відвідувачів"></i>`).join("")}</div>
+      <p class="note">Перегляди по днях за останні 30 днів (наведи на стовпчик, щоб побачити число).</p>`;
+  }catch(e){ box.innerHTML = `<p class="note bad">Не вдалося завантажити статистику: ${esc(e.message)}</p>`; }
+}
+
+function refreshAll(){ loadStatus(); loadRuns(); loadStats(); }
+if (TOKEN) enter(); else showLogin();
+</script>
+</body>
+</html>

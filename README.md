@@ -27,3 +27,9 @@
 Траси маршрутів у розкладі дуже грубі, тому вони замінюються маршрутами з OpenStreetMap (`data/osm_routes.json`),
 а де відповідника немає — прокладаються вулицями й коліями (`data/road_graph.npz`). Обидва файли зібрані з OSM
 скриптами `tools/osm_routes.py` і `tools/osm_graph.py`.
+
+## Адмінка
+
+`https://cyber-kyiv.online/admin/` — стан сайту, кнопки запуску оновлень (через GitHub Actions) і оголошення для
+відвідувачів (`announcement.json`). Вхід — особистим fine-grained GitHub-токеном із доступом лише до цього
+репозиторію (Actions і Contents: Read and write); токен зберігається тільки в браузері адміністратора.
