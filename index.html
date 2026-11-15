@@ -118,7 +118,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 .tip .st.off{color:var(--off-ink)}
 .tip .m{color:var(--muted)}
 .compass{z-index:2;position:fixed;right:16px;top:calc(16px + env(safe-area-inset-top,0px));font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.6;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-.north{pointer-events:auto;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(12,16,32,.82);color:var(--ink);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(8px);padding:0}
+.north{pointer-events:auto;touch-action:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(12,16,32,.82);color:var(--ink);display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(8px);padding:0}
 .north:focus-visible{outline:2px solid var(--on);outline-offset:2px}
 #needle{transform-origin:12px 12px;transition:none}
 #scene:focus{outline:none}
@@ -128,7 +128,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
   .clock b{font-size:24px}
   .stat .v{font-size:18px}
   .compass{top:auto;bottom:calc(var(--dock-h,120px) + 12px);right:12px}
-  .compass.north-up{display:none}
+
   .hide-sm{display:none}
 }
 [hidden]{display:none!important}
@@ -257,7 +257,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
   </details>
 </section>
 
-<div class="compass"><button type="button" id="north" class="north" title="Повернути північ угору" aria-label="Повернути північ угору"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g id="needle"><path d="M12 3l3.2 9h-6.4z" fill="#ff9636"/><path d="M12 21l-3.2-9h6.4z" fill="currentColor" opacity=".55"/></g></svg></button><span class="hide-sm">перетягніть — рух · колесо — масштаб<br>права кнопка або Ctrl — поворот і нахил</span></div>
+<div class="compass"><button type="button" id="north" class="north" title="Тягніть — поворот і нахил, натисніть — північ угору" aria-label="Компас: тягніть для повороту, натисніть щоб повернути північ угору"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g id="needle"><path d="M12 3l3.2 9h-6.4z" fill="#ff9636"/><path d="M12 21l-3.2-9h6.4z" fill="currentColor" opacity=".55"/></g></svg></button><span class="hide-sm">перетягніть — рух · колесо — масштаб<br>Ctrl / середня кнопка або тягніть компас — поворот і нахил</span></div>
 
 <section class="dock">
   <div class="dock-top">
@@ -344,7 +344,7 @@ function buildingAt(x, z){
 const $ = id => document.getElementById(id);
 const canvas = $("scene");
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:"high-performance"});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));   // lowered while moving on slow devices, see the render loop
 renderer.setClearColor(0x060912, 1);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, 1, 20, 140000);
@@ -378,6 +378,8 @@ class MapNav extends THREE.EventDispatcher {
     addEventListener("blur", ()=>this.endMouse());
     el.addEventListener("wheel", e=>this.wheel(e), {passive:false});
     el.addEventListener("contextmenu", e=>e.preventDefault());
+    el.addEventListener("mousedown", e=>{ if (e.button === 1) e.preventDefault(); });   // no autoscroll on middle-drag
+    el.addEventListener("auxclick", e=>{ if (e.button === 1) e.preventDefault(); });
     el.addEventListener("dblclick", e=>{ if(e.pointerType!=="touch") this.zoomAt(e.clientX, e.clientY, 0.5, true); });
     el.addEventListener("keydown", e=>this.key(e));
   }
@@ -408,7 +410,7 @@ class MapNav extends THREE.EventDispatcher {
     const now = this.ground(x, y); this.target.x += g.x - now.x; this.target.z += g.z - now.z; this.apply();
   }
   zoomAt(x, y, f, animated){
-    if (animated){ this.anim = {x, y, f, t0: performance.now(), done: 1}; return; }
+    if (animated){ this.zoomQ = null; this.anim = {x, y, f, t0: performance.now(), done: 1}; return; }
     const g = this.ground(x, y); this.dist *= f; this.apply(); this.keep(g, x, y);
   }
   down(e){
@@ -416,7 +418,7 @@ class MapNav extends THREE.EventDispatcher {
     this.el.setPointerCapture && this.el.setPointerCapture(e.pointerId);
     this.vel.set(0,0); this.anim = null;
     this.pointers.set(e.pointerId, {x:e.clientX, y:e.clientY, t:performance.now(), mouse: e.pointerType === "mouse"});
-    const rot = e.pointerType === "mouse" && (e.button === 2 || e.ctrlKey || e.shiftKey || e.metaKey);
+    const rot = e.pointerType === "mouse" && (e.button === 2 || e.button === 1 || e.ctrlKey || e.shiftKey || e.metaKey);
     this.start(rot ? "rotate" : null);
     if (e.pointerType === "touch" && this.pointers.size === 1){
       const t = performance.now();
@@ -447,7 +449,7 @@ class MapNav extends THREE.EventDispatcher {
       const before = this.target.clone(); this.keep(this.grab, p.x, p.y);
       this.track.push({t: p.t, x: this.target.x - before.x, z: this.target.z - before.z}); if (this.track.length > 6) this.track.shift();
     } else if (this.mode === "rotate"){
-      this.az -= dx * 0.006; this.tilt -= dy * 0.006; this.apply();
+      this.rotateBy(dx, dy);
     } else if (this.mode === "two" && this.pointers.size >= 2){
       const [a, b] = [...this.pointers.values()];
       const m = {x:(a.x+b.x)/2, y:(a.y+b.y)/2, d:Math.hypot(b.x-a.x, b.y-a.y), ang:Math.atan2(b.y-a.y, b.x-a.x)};
@@ -462,7 +464,7 @@ class MapNav extends THREE.EventDispatcher {
           if (this.gesture === "map"){ this.prev = m; this.grab = this.ground(m.x, m.y); }
         }
       }
-      if (this.gesture === "tilt"){ this.tilt -= (m.y - this.prev.y) * 0.008; this.apply(); }
+      if (this.gesture === "tilt"){ this.rotateBy(0, (m.y - this.prev.y) * 1.33); }
       else if (this.gesture === "map"){
         let da = m.ang - this.prev.ang; if (da > Math.PI) da -= 2*Math.PI; if (da < -Math.PI) da += 2*Math.PI;
         this.dist *= this.prev.d / Math.max(m.d, 1); this.az -= da; this.apply();
@@ -485,8 +487,9 @@ class MapNav extends THREE.EventDispatcher {
   wheel(e){
     e.preventDefault(); this.anim = null; this.vel.set(0,0);
     const k = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
-    const f = Math.exp(e.deltaY * k * (e.ctrlKey ? 0.01 : 0.0015));   // ctrl+wheel = trackpad pinch
-    this.zoomAt(e.clientX, e.clientY, Math.min(2, Math.max(0.5, f)));
+    const lf = e.deltaY * k * (e.ctrlKey ? 0.01 : 0.0015);              // ctrl+wheel = trackpad pinch
+    const q = this.zoomQ || (this.zoomQ = {log: 0});
+    q.x = e.clientX; q.y = e.clientY; q.log = Math.max(-1.6, Math.min(1.6, q.log + Math.max(-0.7, Math.min(0.7, lf))));
   }
   key(e){
     const r = this.el.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2, step = r.height*0.15;
@@ -496,13 +499,28 @@ class MapNav extends THREE.EventDispatcher {
                  "+":()=>this.zoomAt(cx, cy, 0.6, true), "=":()=>this.zoomAt(cx, cy, 0.6, true), "-":()=>this.zoomAt(cx, cy, 1/0.6, true)};
     if (map[e.key]){ e.preventDefault(); map[e.key](); }
   }
-  north(){ this.turn = {az0: this.az, az1: Math.round(this.az/(2*Math.PI))*2*Math.PI, t0: performance.now()}; }
+  rotateBy(dx, dy){                       // smoothed: the camera eases towards where the pointer asks
+    if (!this.ease) this.ease = {az: this.az, tilt: this.tilt};
+    this.ease.az -= dx * 0.006;
+    this.ease.tilt = Math.min(this.maxTilt, Math.max(0.0001, this.ease.tilt - dy * 0.006));
+  }
+  north(){ this.ease = null; this.turn = {az0: this.az, az1: Math.round(this.az/(2*Math.PI))*2*Math.PI, t0: performance.now()}; }
   update(){
     const now = performance.now();
+    const dt = Math.min(48, now - (this._t || now));
     if (this.vel.lengthSq() > 1e-6 && !this.pointers.size){
-      const dt = Math.min(48, now - (this._t || now));
-      this.target.x += this.vel.x*dt; this.target.z += this.vel.y*dt; this.vel.multiplyScalar(Math.pow(0.0025, dt/1000)); this.apply();
+      this.target.x += this.vel.x*dt; this.target.z += this.vel.y*dt; this.vel.multiplyScalar(Math.pow(0.03, dt/1000)); this.apply();
+      if (this.vel.length() < this.dist * 2e-6) this.vel.set(0,0);
     } else this.vel.set(0,0);
+    if (this.zoomQ){                       // wheel: glide the remaining zoom, anchored at the cursor
+      const q = this.zoomQ, a = 1 - Math.exp(-dt/75), step = Math.abs(q.log) < 0.002 ? q.log : q.log * a;
+      this.zoomAt(q.x, q.y, Math.exp(step)); q.log -= step; if (q.log === 0 || Math.abs(q.log) < 1e-6) this.zoomQ = null;
+    }
+    if (this.ease){
+      const a = 1 - Math.exp(-dt/55), e = this.ease;
+      this.az += (e.az - this.az) * a; this.tilt += (e.tilt - this.tilt) * a; this.apply();
+      if (Math.abs(e.az - this.az) < 1e-4 && Math.abs(e.tilt - this.tilt) < 1e-4){ this.az = e.az; this.tilt = e.tilt; this.ease = null; this.apply(); }
+    }
     if (this.anim){                        // smooth zoom for double tap / keys
       const a = this.anim, k = Math.min(1, (now - a.t0)/260), e = 1 - Math.pow(1-k, 3);
       const want = Math.pow(a.f, e), step = want / a.done; a.done = want;
@@ -1027,7 +1045,7 @@ function trSync(){
 function trTick(now){                     // called from the render loop
   if (!(TR.on && TR.ready)) return;
   const camD = camera.position.distanceTo(controls.target);
-  const every = camD < 6000 ? 33 : camD < 16000 ? 120 : 400;    // smooth up close, cheap from afar
+  const every = camD < 9000 ? 0 : camD < 20000 ? 66 : 250;      // every frame up close, cheaper from afar
   if (now - TR.last < every) return;
   TR.last = now; trUpdate(); needs = true;
 }
@@ -1055,7 +1073,15 @@ controls.addEventListener("change", ()=>{
   const a = Math.abs(Math.atan2(Math.sin(controls.az), Math.cos(controls.az)));
   document.querySelector(".compass").classList.toggle("north-up", a < 0.035);
 });
-$("north").onclick = ()=> controls.north();
+(function(){                               // compass: drag to rotate (sideways) and tilt (up/down), tap = north up
+  const b = $("north"); let d = null;
+  b.addEventListener("pointerdown", e=>{ d = {x:e.clientX, y:e.clientY, moved:false}; b.setPointerCapture(e.pointerId); e.preventDefault(); });
+  b.addEventListener("pointermove", e=>{ if(!d) return; const dx=e.clientX-d.x, dy=e.clientY-d.y;
+    if(!d.moved && Math.hypot(dx,dy) < 4) return; d.moved = true; controls.rotateBy(-dx*1.2, dy*1.2); d.x=e.clientX; d.y=e.clientY; });
+  b.addEventListener("pointerup", ()=>{ if(d && !d.moved) controls.north(); d = null; });
+  b.addEventListener("pointercancel", ()=>{ d = null; });
+  b.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); controls.north(); } });
+})();
 function resize(){
   const w=innerWidth,h=innerHeight;
   const dk=document.querySelector(".dock"); if(dk) document.documentElement.style.setProperty("--dock-h", dk.offsetHeight+"px"); renderer.setSize(w,h,false); camera.aspect=w/h;
@@ -1063,10 +1089,16 @@ function resize(){
 }
 addEventListener("resize", resize);
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const FULL_PR = Math.min(devicePixelRatio, 1.75);
+let lastCam = 0, lastFrame = 0, frameAvg = 16, curPR = FULL_PR;
 (function loop(now){
   requestAnimationFrame(loop);
-  trTick(now || performance.now());
-  if(controls.update()) needs=true;
+  now = now || performance.now();
+  if(controls.update()){ needs=true; lastCam = now; if (TR.on && TR.ready) trUpdate(); }   // keep vehicles glued to the moving camera
+  trTick(now);
+  // slow GPU: render at a lower resolution while the map moves, full sharpness once it stops
+  const want = (now - lastCam < 220 && frameAvg > 22) ? Math.max(1, FULL_PR*0.6) : FULL_PR;
+  if (want !== curPR && (want < curPR || now - lastCam > 220)){ curPR = want; renderer.setPixelRatio(curPR); renderer.setSize(innerWidth, innerHeight, false); needs = true; }
   if(animate){
     let moving=false;
     for(let i=0;i<64;i++){ const df=targetF[i]-uFb.value[i]; if(Math.abs(df)>0.002){ uFb.value[i]+= reduce? df : df*0.12; moving=true; } else uFb.value[i]=targetF[i]; }
@@ -1074,7 +1106,10 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     for(let i=0;i<64;i++){ const d=target[i]-uState.value[i]; if(Math.abs(d)>0.002){ uState.value[i]+= reduce? d : d*0.12; moving=true; } else uState.value[i]=target[i]; }
     animate = moving; needs=true;
   }
-  if(needs){ renderer.render(scene,camera); updateLabels(); needs=false; }
+  if(needs){
+    renderer.render(scene,camera); updateLabels(); needs=false;
+    const dt = now - lastFrame; if (dt < 120) frameAvg = frameAvg*0.9 + dt*0.1; lastFrame = now;
+  }
 })();
 
 
