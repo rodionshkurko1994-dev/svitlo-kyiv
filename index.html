@@ -164,6 +164,17 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 .btns .tr-btn.active{color:#6fd6c4;border-color:rgba(111,214,196,.45)}
 .tip .st.em,.tip .m.em{color:var(--warn)}
 .sw.na{background:#3b4260}
+/* Telegram Mini App: keep clear of Telegram's own controls and the phone's notch */
+html.tg .panel{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+html.tg .dock{bottom:calc(16px + var(--tg-safe-area-inset-bottom,0px) + var(--tg-content-safe-area-inset-bottom,0px))}
+html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+.tag.share{color:var(--ink);background:none;cursor:pointer;font:inherit;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+@media (max-width:640px){
+  html.tg .panel{top:0;padding-top:calc(8px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+  html.tg .dock{bottom:0;padding-bottom:calc(6px + var(--tg-safe-area-inset-bottom,0px) + var(--tg-content-safe-area-inset-bottom,0px))}
+  html.tg .compass{top:auto}
+  .tag.share{font-size:9px}
+}
 /* compact phone layout: full-width slim bars top and bottom */
 @media (max-width:640px){
   .panel{left:0;right:0;width:100%;top:0;max-height:70%;border-radius:0 0 12px 12px;border-top:0;border-left:0;border-right:0;
@@ -209,7 +220,7 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 <section class="panel" aria-live="polite">
   <div class="head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
     <h1>Cyber Kyiv</h1>
-    <span class="head-r"><span class="tag plan" id="modeTag">графік</span><a class="tag donate" data-goatcounter-click="donate" data-goatcounter-title="Кнопка Донат" href="https://send.monobank.ua/jar/3ozLFFRT2g" target="_blank" rel="noopener" title="Підтримати проєкт (банка monobank)"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path fill="currentColor" d="M8 14.2 6.9 13.2C3 9.7.5 7.4.5 4.6.5 2.3 2.3.6 4.5.6c1.3 0 2.5.6 3.5 1.6C9 1.2 10.2.6 11.5.6c2.2 0 4 1.7 4 4 0 2.8-2.5 5.1-6.4 8.6z"/></svg>Донат</a></span>
+    <span class="head-r"><button type="button" class="tag share" id="tgShare" hidden>Поділитися</button><span class="tag plan" id="modeTag">графік</span><a class="tag donate" data-goatcounter-click="donate" data-goatcounter-title="Кнопка Донат" href="https://send.monobank.ua/jar/3ozLFFRT2g" target="_blank" rel="noopener" title="Підтримати проєкт (банка monobank)"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path fill="currentColor" d="M8 14.2 6.9 13.2C3 9.7.5 7.4.5 4.6.5 2.3 2.3.6 4.5.6c1.3 0 2.5.6 3.5 1.6C9 1.2 10.2.6 11.5.6c2.2 0 4 1.7 4 4 0 2.8-2.5 5.1-6.4 8.6z"/></svg>Донат</a></span>
   </div>
   <div class="notice" id="notice" role="status" hidden><span id="noticeText"></span><button type="button" id="noticeX" aria-label="Закрити оголошення">×</button></div>
   <div class="clock"><b id="clk">--:--</b><span id="day">—</span></div>
@@ -1120,6 +1131,49 @@ resize(); drawTicks(); showFresh(); setT(absNow(), true); drawStrip();
 loadCity().then(()=>{ apply(); drawStrip(); }).catch(e=>{ console.error(e); $("loadTxt").textContent="Не вдалося завантажити карту міста. Оновіть сторінку."; });
 </script>
 
+<script>
+/* ---------- Telegram Mini App ---------- */
+(function(){
+  const inTg = /tgWebApp/.test(location.hash + location.search) || !!window.TelegramWebviewProxy;
+  if (!inTg) return;
+  document.documentElement.classList.add("tg");
+  const BOT_LINK = "";
+  const s = document.createElement("script");
+  s.src = "https://telegram.org/js/telegram-web-app.js"; s.onload = init; document.head.appendChild(s);
+  function init(){
+    const tg = window.Telegram && Telegram.WebApp; if (!tg) return;
+    const v = x => { try { return tg.isVersionAtLeast(x); } catch(e) { return false; } };
+    const safe = f => { try { f(); } catch(e) {} };
+    safe(()=> tg.ready()); safe(()=> tg.expand());
+    if (v("6.1")) safe(()=>{ tg.setHeaderColor("#070b17"); tg.setBackgroundColor("#070b17"); });
+    if (v("7.10")) safe(()=> tg.setBottomBarColor("#0a0f20"));
+    if (v("7.7")) safe(()=> tg.disableVerticalSwipes());          // dragging the map down must not close the app
+    if (v("8.0") && /^(ios|android)$/.test(tg.platform)) safe(()=> tg.requestFullscreen());
+    // links leave the app instead of replacing it
+    document.addEventListener("click", e=>{
+      const a = e.target.closest && e.target.closest("a[href]"); if (!a) return;
+      const u = a.href; if (!/^https?:/.test(u) || u.startsWith(location.origin + "/")) return;
+      e.preventDefault();
+      if (/^https:\/\/t\.me\//.test(u)) safe(()=> tg.openTelegramLink(u)); else safe(()=> tg.openLink(u));
+    }, true);
+    // a light tick on every button
+    if (tg.HapticFeedback && v("6.1")) document.addEventListener("click", e=>{
+      if (e.target.closest && e.target.closest("button")) safe(()=> tg.HapticFeedback.selectionChanged());
+    }, true);
+    // share the app in a chat
+    const sh = document.getElementById("tgShare");
+    if (sh){
+      sh.hidden = false;
+      sh.onclick = ()=> safe(()=> tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(BOT_LINK || "https://cyber-kyiv.online/") +
+        "&text=" + encodeURIComponent("Карта відключень світла в Києві: де зараз є світло, за графіками YASNO")));
+    }
+    // Telegram resizes the view and its safe areas: lay the page out again
+    const re = ()=> dispatchEvent(new Event("resize"));
+    ["viewportChanged","safeAreaChanged","contentSafeAreaChanged","fullscreenChanged"].forEach(ev => safe(()=> tg.onEvent(ev, re)));
+    setTimeout(re, 50);
+  }
+})();
+</script>
 <script data-goatcounter="https://svitlo-kyiv.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <script>
 (function(){try{
