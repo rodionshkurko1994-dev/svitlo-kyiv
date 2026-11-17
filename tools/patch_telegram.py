@@ -68,7 +68,7 @@ JS = '''<script>
     if (sh){
       sh.hidden = false;
       sh.onclick = ()=> safe(()=> tg.openTelegramLink("https://t.me/share/url?url=" + encodeURIComponent(BOT_LINK || "https://cyber-kyiv.online/") +
-        "&text=" + encodeURIComponent("Карта відключень світла в Києві: де зараз є світло, за графіками YASNO")));
+        "&text=" + encodeURIComponent("Cyber Kyiv — Ситуація в Києві та Київській області")));
     }
     // Telegram resizes the view and its safe areas: lay the page out again
     const re = ()=> dispatchEvent(new Event("resize"));
