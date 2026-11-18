@@ -179,6 +179,12 @@ html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-co
 .wx b{font-family:var(--f-mono);font-size:15px;color:var(--ink);font-weight:500}
 .wx svg{display:block}
 #wxfx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+#wxveil{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity 2.5s ease,background 2.5s ease}
+.dlabel .aq{display:inline-block;margin-left:7px;padding:1px 6px 1px 5px;border-radius:7px;font-size:10px;letter-spacing:.02em;text-transform:none;background:rgba(6,9,18,.55);color:#e8ecf8;vertical-align:1px}
+.dlabel .aq i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.air{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);line-height:1.35}
+.air i{flex:none;width:8px;height:8px;border-radius:50%}
+.air b{color:var(--ink);font-weight:600}
 .homebox{display:flex;flex-direction:column}
 .home-add{align-self:flex-start;display:inline-flex;align-items:center;gap:7px;background:none;border:1px dashed var(--line);color:var(--muted);border-radius:9px;padding:6px 10px;font:500 12.5px var(--f-body);cursor:pointer}
 .home-add:hover{color:var(--ink);border-color:rgba(150,170,230,.45)}
@@ -286,6 +292,7 @@ html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-co
   <div class="more-body">
   <div class="legend"><span><i class="sw na"></i>немає даних про групу</span><span id="lgEm" hidden><i class="sw em"></i>екстрені відключення</span><span><i class="sw t0"></i>трамвай</span><span><i class="sw t1"></i>тролейбус</span><span><i class="sw t2"></i>автобус</span></div>
   <p class="note indiv">Будинки пофарбовані за групою своєї адреси в YASNO; частина — за найближчим сусідом. Свою адресу перевіряйте на <a href="https://www.dtek-kem.com.ua/ua/shutdowns" target="_blank" rel="noopener">сайті ДТЕК</a> або в «Київ Цифровому».</p>
+  <div class="air" id="air" hidden><i id="airDot"></i><span id="airTxt"></span></div>
   <p class="note" id="fresh">Графік YASNO: завантаження…</p>
   <details>
     <summary>Як читати карту</summary>
@@ -340,6 +347,7 @@ html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-co
 </section>
 
 <div class="labels" id="labels" aria-hidden="true"></div>
+<div id="wxveil" aria-hidden="true"></div>
 <canvas id="wxfx" aria-hidden="true"></canvas>
 <div class="homepin" id="homePin" hidden aria-hidden="true"><svg viewBox="0 0 24 30" width="26" height="32"><path d="M12 29C7 22 2.5 17.5 2.5 11.5a9.5 9.5 0 0 1 19 0C21.5 17.5 17 22 12 29z" fill="#ff9636" stroke="#070b17" stroke-width="1.5"/><path d="M7.5 12 12 8l4.5 4M8.8 11.2V15.5h6.4v-4.3" fill="none" stroke="#070b17" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
 <div class="sheet-bg" id="homeSheet" hidden>
@@ -634,6 +642,25 @@ const CITY_MASK = (()=>{
   const t = new THREE.CanvasTexture(cv); t.flipY = false; t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false;
   return { tex: t, box: new THREE.Vector4(x0, z0, x1-x0, z1-z0) };
 })();
+const HAZE = `
+  uniform vec3 uAq[10]; uniform float uCloud; uniform float uTime;
+  float hazeAt(vec2 p){ float ws = 0.0, s = 0.0; for (int i = 0; i < 10; i++){ vec2 d = p - uAq[i].xy; float w = 1.0/(dot(d,d) + 6.0e6); ws += w; s += w*uAq[i].z; } return s/ws; }
+  vec3 applyHaze(vec3 c, vec3 wp, float h){
+    float hz = hazeAt(wp.xz); if (hz < 0.002) return c;
+    float dv = distance(wp, cameraPosition);
+    float k = hz * (0.22 + 0.38*smoothstep(600.0, 9000.0, dv)) * mix(1.0, 0.55, smoothstep(15.0, 160.0, h));
+    vec3 hc = mix(vec3(0.24,0.21,0.19), vec3(0.66,0.62,0.55), uDay);
+    return mix(c, hc, k);
+  }
+  float hsh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+  float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+    return mix(mix(hsh(i), hsh(i+vec2(1,0)), f.x), mix(hsh(i+vec2(0,1)), hsh(i+vec2(1,1)), f.x), f.y); }
+  float cloudShadow(vec3 wp){
+    if (uCloud < 0.01) return 1.0;
+    vec2 q = wp.xz/4200.0 + vec2(uTime*0.010, uTime*0.004);
+    float n = 0.6*vnoise(q) + 0.3*vnoise(q*2.3 + 7.1) + 0.1*vnoise(q*5.1 + 3.3);
+    return 1.0 - uCloud*0.42*smoothstep(0.42, 0.68, n);
+  }`;
 const FOG = `
   float fogF(vec3 wp){ float d = distance(wp, cameraPosition); return smoothstep(uFogNear, uFogFar, d); }
   uniform sampler2D uMask; uniform vec4 uMaskB;
@@ -643,6 +670,7 @@ const common = {
   uState: uState, uEm: uEm, uFb: uFb,
   uFogNear: { value: 30000 }, uFogFar: { value: 80000 },
   uMask: { value: CITY_MASK.tex }, uMaskB: { value: CITY_MASK.box },
+  uAq: { value: Array.from({length:10}, (_, i) => new THREE.Vector3(DISTRICTS[i] ? DISTRICTS[i].x : 0, DISTRICTS[i] ? DISTRICTS[i].z : 0, 0)) }, uCloud: { value: 0 },
   uFogCol: { value: new THREE.Color(0x060912) },
   uTime: { value: 0 },
   uDay: { value: 0 }, uSnow: { value: 0 }, uWet: { value: 0 }, uSunDir: { value: new THREE.Vector3(-0.45, 0.75, 0.35).normalize() }
@@ -666,6 +694,7 @@ const bMat = new THREE.ShaderMaterial({
     uniform float uFogNear, uFogFar; uniform vec3 uFogCol; uniform float uDay, uSnow, uWet; uniform vec3 uSunDir;
     varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE; varying float vF;
     ${FOG}
+    ${HAZE}
     void main(){
       CITY_CLIP
       vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
@@ -691,7 +720,9 @@ const bMat = new THREE.ShaderMaterial({
       c = mix(c, emCol, vE);
       c = mix(c, c*0.8 + vec3(0.15,0.17,0.21)*diff, uDay*0.55);            // daylight lifts the dark tones
       c = mix(c, vec3(0.80,0.84,0.92)*diff, roof*uSnow*0.5);               // snow on roofs
-      c *= 1.0 - 0.12*uWet;                                                // wet, darker walls in rain
+      c *= 1.0 - 0.18*uWet;                                                // wet, darker walls in rain
+      c *= mix(1.0, cloudShadow(vW), uDay);                                // cloud shadows drifting over the city
+      c = applyHaze(c, vW, vH);                                            // polluted air
       gl_FragColor = vec4(mix(c, uFogCol, fogF(vW)), 1.0);
     }`
 });
@@ -712,6 +743,7 @@ const roadMat = new THREE.ShaderMaterial({
     uniform float uFogNear, uFogFar; uniform vec3 uFogCol; uniform float uDay, uSnow;
     varying vec3 vW; varying float vS; varying float vR; varying float vE; varying float vF;
     ${FOG}
+    ${HAZE}
     void main(){
       CITY_CLIP
       float major = vR < 1.5 ? 1.0 : (vR < 2.5 ? 0.6 : 0.35);
@@ -723,6 +755,7 @@ const roadMat = new THREE.ShaderMaterial({
       c = mix(c, vec3(0.20,0.17,0.28), vE*0.8);
       c = mix(c, c*0.7 + vec3(0.14,0.15,0.18), uDay*0.45);
       c = mix(c, vec3(0.62,0.64,0.70), uSnow*0.25);
+      c = applyHaze(c, vW, 0.0);
       float a = (0.35 + 0.55*major) * (1.0 - fogF(vW)) * (1.0 - 0.25*vE);
       gl_FragColor = vec4(c, a);
     }`
@@ -732,11 +765,13 @@ function flatMat(hex, y, dayHex){
   return new THREE.ShaderMaterial({
     uniforms: Object.assign({ uCol: { value: new THREE.Color(hex) }, uColDay: { value: new THREE.Color(dayHex == null ? hex : dayHex) }, uSnowable: { value: 1 } }, common),
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
-    fragmentShader: `uniform vec3 uCol, uColDay; uniform float uFogNear, uFogFar; uniform vec3 uFogCol; uniform float uDay, uSnow, uSnowable; varying vec3 vW; ${FOG}
+    fragmentShader: `uniform vec3 uCol, uColDay; uniform float uFogNear, uFogFar; uniform vec3 uFogCol; uniform float uDay, uSnow, uSnowable; uniform float uWet; varying vec3 vW; ${FOG} ${HAZE}
       void main(){
         CITY_CLIP
         vec3 c = mix(uCol, uColDay, uDay);                                         // muted daylight palette
         c = mix(c, vec3(0.50,0.54,0.62) * (0.55 + 0.45*uDay), uSnow*uSnowable*0.7); // snow cover (not on water)
+        c *= (1.0 - 0.15*uWet*uSnowable) * mix(1.0, cloudShadow(vW), uDay);       // wet ground, cloud shadows
+        c = applyHaze(c, vW, 0.0);
         gl_FragColor = vec4(mix(c, uFogCol, fogF(vW)), 1.0); }`,
     polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: y
   });
@@ -1003,6 +1038,7 @@ function pick(ev){
       (!blind && nx?`<div class="m">${nx.to==="on"?"Увімкнуть":nx.to==="off"?"Вимкнуть":"Далі немає графіка"} о ${hhmm(nx.at%1440)}${nx.at>=1440?" завтра":""}</div>`:"")+
       `<div class="m">${src}</div>`;
   }
+  html += aqTip(hit.x, hit.z);
   tip.innerHTML = html; tip.hidden=false;
   const tx=Math.min(ev.clientX+14, innerWidth-tip.offsetWidth-8), ty=Math.min(ev.clientY+14, innerHeight-tip.offsetHeight-8);
   tip.style.left=Math.max(8,tx)+"px"; tip.style.top=Math.max(8,ty)+"px";
@@ -1080,7 +1116,8 @@ function envUpdate(){
   const day = Math.max(0, Math.min(1, (elDeg + 5) / 13));              // civil twilight .. sun 8° up
   const dusk = Math.max(0, 1 - Math.abs(elDeg + 1) / 7) * (1 - 0.6*cloud);
   const precip = w ? Math.min(1, (w.precipitation||0) / 3) : 0;
-  ENV.kind = kind; ENV.precip = (kind === "rain" || kind === "snow" || kind === "storm") ? Math.max(0.25, precip) : 0;
+  ENV.kind = kind; ENV.precip = (kind === "rain" || kind === "snow" || kind === "storm") ? Math.max(0.5, precip) : 0;
+  ENV.cloud = kind === "fog" ? 0 : Math.min(1, cloud*1.1);
   ENV.wind = w ? w.wind_speed_10m || 0 : 0; ENV.windDir = w ? w.wind_direction_10m || 0 : 0;
   ENV.day = day; ENV.haze = kind === "fog" ? 1 : kind === "snow" ? 0.55 : kind === "rain" || kind === "storm" ? 0.4 : cloud*0.2;
   ENV.wet = (kind === "rain" || kind === "storm") ? 1 : 0;
@@ -1101,6 +1138,16 @@ function envUpdate(){
     $("wxIcon").innerHTML = WX_ICON[icon] || WX_ICON.cloud;
     $("wx").title = `Погода в Києві${follow ? " зараз" : " на обраний час"}: ${WX_TEXT[code] || ""}, ${Math.round(t)}°, вітер ${Math.round(ENV.wind)} км/год`;
   }
+  // colour veil over the map: rain darkens, fog and snow whiten, overcast greys
+  const veil = $("wxveil");
+  if (veil){
+    const v = kind === "fog" ? ["linear-gradient(to top, rgba(178,186,204,.30), rgba(178,186,204,.08))", 1]
+      : kind === "rain" || kind === "storm" ? ["linear-gradient(to bottom, rgba(18,28,58,.34), rgba(30,44,80,.14))", 1]
+      : kind === "snow" ? ["linear-gradient(to bottom, rgba(225,232,248,.20), rgba(225,232,248,.07))", 1]
+      : kind === "cloud" ? ["linear-gradient(to bottom, rgba(96,106,128,.20), rgba(96,106,128,.05))", 0.6 + 0.4*day]
+      : ["none", 0];
+    veil.style.background = v[0]; veil.style.opacity = v[1];
+  }
   envTarget = true; needs = true;
 }
 let envTarget = false;
@@ -1108,11 +1155,13 @@ function envTick(dt){                      // ease the look towards the target, 
   const u = common, k = 1 - Math.exp(-dt/600);
   let moving = false;
   const ease = (o, key, v) => { const d = v - o[key]; if (Math.abs(d) > 0.002){ o[key] += d*k; moving = true; } else o[key] = v; };
-  ease(u.uDay, "value", ENV.day); ease(u.uWet, "value", ENV.wet); ease(u.uSnow, "value", ENV.snowTarget || 0);
+  ease(u.uDay, "value", ENV.day); ease(u.uWet, "value", ENV.wet); ease(u.uSnow, "value", ENV.snowTarget || 0); ease(u.uCloud, "value", ENV.cloud || 0);
+  const tNow = performance.now();                                  // drift the cloud shadows a few times a second
+  if (u.uCloud.value > 0.02 && u.uDay.value > 0.05 && tNow - (envTick.tc || 0) > 220){ envTick.tc = tNow; u.uTime.value = tNow/1000; moving = true; }
   if (ENV.sun){ u.uSunDir.value.lerp(ENV.sun, k).normalize(); }
   const fc = u.uFogCol.value; if (Math.abs(fc.r-ENV.bg.r)+Math.abs(fc.g-ENV.bg.g)+Math.abs(fc.b-ENV.bg.b) > 0.004){ fc.lerp(ENV.bg, k); moving = true; } else fc.copy(ENV.bg);
   renderer.setClearColor(fc, 1);
-  const near = 30000*(1 - 0.75*ENV.haze), far = 80000*(1 - 0.65*ENV.haze);
+  const near = 30000*(1 - 0.6*ENV.haze), far = 80000*(1 - 0.45*ENV.haze);   // fog thins the far city but keeps it readable
   ease(u.uFogNear, "value", near); ease(u.uFogFar, "value", far);
   if (moving) needs = true;
 }
@@ -1125,7 +1174,7 @@ function fxResize(){ const r = Math.min(devicePixelRatio, 1.5); FX.cv.width = in
 fxResize(); addEventListener("resize", fxResize);
 function fxFrame(now){
   requestAnimationFrame(fxFrame);
-  const cv = FX.cv, ctx = cv.getContext("2d"), kind = ENV.kind, want = ENV.precip > 0 && !document.hidden ? Math.round((kind === "snow" ? 160 : 220) * ENV.precip * (innerWidth*innerHeight/1e6 + 0.4)) : 0;
+  const cv = FX.cv, ctx = cv.getContext("2d"), kind = ENV.kind, want = ENV.precip > 0 && !document.hidden ? Math.round((kind === "snow" ? 280 : 420) * ENV.precip * (innerWidth*innerHeight/1e6 + 0.4)) : 0;
   if (!want && !FX.parts.length && !FX.flash){ if (FX.drawn){ ctx.clearRect(0,0,cv.width,cv.height); FX.drawn = false; } return; }
   const dt = Math.min(50, now - (FX.last || now)); FX.last = now;
   while (FX.parts.length < want) FX.parts.push({x: Math.random()*innerWidth, y: Math.random()*innerHeight, s: 0.6 + Math.random()*0.8, p: Math.random()*6.28});
@@ -1133,19 +1182,19 @@ function fxFrame(now){
   ctx.setTransform(FX.r,0,0,FX.r,0,0); ctx.clearRect(0,0,innerWidth,innerHeight); FX.drawn = true;
   const windX = Math.sin((ENV.windDir + 180) * Math.PI/180) * Math.min(1, ENV.wind/40);
   if (kind === "snow"){
-    ctx.fillStyle = "rgba(235,240,255,.85)";
+    ctx.fillStyle = "rgba(240,244,255,.92)";
     for (const q of FX.parts){
       q.y += dt*0.045*q.s; q.p += dt*0.002; q.x += dt*(0.02*windX + 0.012*Math.sin(q.p));
       if (q.y > innerHeight + 4){ q.y = -4; q.x = Math.random()*innerWidth; } if (q.x < -4) q.x = innerWidth + 4; if (q.x > innerWidth + 4) q.x = -4;
-      ctx.beginPath(); ctx.arc(q.x, q.y, 1.1 + q.s*1.1, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(q.x, q.y, 1.4 + q.s*1.6, 0, 6.283); ctx.fill();
     }
   } else if (want){
-    ctx.strokeStyle = "rgba(170,190,235,.42)"; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.strokeStyle = "rgba(185,205,245,.58)"; ctx.lineWidth = 1.3; ctx.beginPath();
     const vx = windX*0.35, vy = 1;
     for (const q of FX.parts){
       q.y += dt*0.9*q.s; q.x += dt*0.9*q.s*vx;
       if (q.y > innerHeight + 20){ q.y = -20; q.x = Math.random()*innerWidth; } if (q.x < -20) q.x = innerWidth + 20; if (q.x > innerWidth + 20) q.x = -20;
-      const L = 9 + q.s*8; ctx.moveTo(q.x, q.y); ctx.lineTo(q.x - vx*L, q.y - vy*L);
+      const L = 12 + q.s*12; ctx.moveTo(q.x, q.y); ctx.lineTo(q.x - vx*L, q.y - vy*L);
     }
     ctx.stroke();
   }
@@ -1290,6 +1339,78 @@ function updateLabels(){
   });
 }
 
+
+/* ---------- air quality by district (Open-Meteo CAMS + Sensor.Community) ---------- */
+const AQ = { d: DISTRICTS.map(() => null), at: 0 };
+const AQ_LV = [[20,"добре","#4fd1a5"],[40,"прийнятне","#a8d672"],[60,"помірне","#ffd25a"],[80,"погане","#ff9a4d"],[100,"дуже погане","#ff5d5d"],[1e9,"надзвичайно погане","#b56cff"]];
+function aqLevel(v){ return AQ_LV.find(l => v < l[0]); }
+function aqFromPm(pm25, pm10){              // European AQI scale from concentrations (µg/m³)
+  const pw = (v, b) => { for (let i = 1; i < b.length; i++) if (v <= b[i]) return (i-1)*20 + (v - b[i-1])/(b[i] - b[i-1])*20; return 100 + (v - b[b.length-1])/b[b.length-1]*50; };
+  const a = pm25 == null ? 0 : pw(pm25, [0,10,20,25,50,75]), b = pm10 == null ? 0 : pw(pm10, [0,20,40,50,100,150]);
+  return Math.max(a, b);
+}
+function inCityXZ(x, z){
+  const P = META.city; let c = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++){ const [xi,zi] = P[i], [xj,zj] = P[j]; if ((zi > z) !== (zj > z) && x < (xj - xi)*(z - zi)/(zj - zi) + xi) c = !c; }
+  return c;
+}
+function nearestDistrict(x, z){ let b = 0, bd = Infinity; DISTRICTS.forEach((d, i) => { const e = (d.x-x)**2 + (d.z-z)**2; if (e < bd){ bd = e; b = i; } }); return b; }
+const KXA = 111320*Math.cos(50.45*Math.PI/180);
+async function pullAir(){
+  const ll = DISTRICTS.map(d => [(50.45 - d.z/110570).toFixed(4), (30.52 + d.x/KXA).toFixed(4)]);
+  const out = DISTRICTS.map(() => null);
+  try{
+    const u = "https://air-quality-api.open-meteo.com/v1/air-quality?timezone=Europe%2FKyiv&current=european_aqi,pm2_5,pm10" +
+      "&latitude=" + ll.map(q => q[0]).join(",") + "&longitude=" + ll.map(q => q[1]).join(",");
+    const r = await fetch(u);
+    if (r.ok){ let j = await r.json(); if (!Array.isArray(j)) j = [j];
+      j.forEach((x, i) => { const c = x && x.current; if (c && c.european_aqi != null && i < out.length) out[i] = { aqi: c.european_aqi, pm25: c.pm2_5, pm10: c.pm10, src: "model", n: 0 }; }); }
+  }catch(e){}
+  try{                                       // live citizen sensors refine the model where there are enough of them
+    const r = await fetch("https://data.sensor.community/airrohr/v1/filter/area=50.45,30.52,22");
+    if (r.ok){
+      const rows = await r.json(), per = DISTRICTS.map(() => ({ p2: [], p1: [], ids: new Set() }));
+      for (const row of rows){
+        const lat = +row.location?.latitude, lon = +row.location?.longitude; if (!lat || !lon) continue;
+        const x = (lon - 30.52)*KXA, z = -(lat - 50.45)*110570; if (!inCityXZ(x, z)) continue;
+        const v = {}; for (const s of row.sensordatavalues || []) v[s.value_type] = +s.value;
+        if (!(v.P2 >= 0 && v.P2 < 500)) continue;
+        const k = per[nearestDistrict(x, z)], id = row.sensor?.id; if (k.ids.has(id)) continue; k.ids.add(id);
+        k.p2.push(v.P2); if (v.P1 >= 0 && v.P1 < 800) k.p1.push(v.P1);
+      }
+      const med = a => { if (!a.length) return null; const b = a.slice().sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m-1] + b[m])/2; };
+      per.forEach((k, i) => { if (k.p2.length >= 2){ const pm25 = med(k.p2), pm10 = med(k.p1); out[i] = { aqi: Math.round(aqFromPm(pm25, pm10)), pm25, pm10, src: "sensors", n: k.p2.length }; } });
+    }
+  }catch(e){}
+  if (!out.some(Boolean)) return;
+  out.forEach((v, i) => { if (v) AQ.d[i] = v; }); AQ.at = Date.now();
+  airRender();
+}
+function airRender(){
+  AQ.d.forEach((v, i) => {
+    common.uAq.value[i].z = v ? Math.max(0, Math.min(1, (v.aqi - 28)/72)) : 0;   // haze from "moderate" upwards
+    const el = labelEls[i]; if (!el) return;
+    el.innerHTML = "";
+    el.append(DISTRICTS[i].name);
+    if (v){ const l = aqLevel(v.aqi), b = document.createElement("span"); b.className = "aq"; b.innerHTML = `<i style="background:${l[2]}"></i>${Math.round(v.aqi)}`; b.title = `Повітря: ${l[1]}`; el.append(b); }
+  });
+  const ok = AQ.d.map((v, i) => v && [v, i]).filter(Boolean); if (!ok.length) return;
+  ok.sort((a, b) => b[0].aqi - a[0].aqi);
+  const [worst, wi] = ok[0], lv = aqLevel(worst.aqi), avg = ok.reduce((s, q) => s + q[0].aqi, 0)/ok.length, la = aqLevel(avg);
+  $("air").hidden = false; $("airDot").style.background = la[2];
+  const sens = ok.filter(q => q[0].src === "sensors").length;
+  $("airTxt").innerHTML = `Повітря зараз: <b>${la[1]}</b>` + (worst.aqi >= 40 ? ` · найгірше: ${DISTRICTS[wi].name} (${Math.round(worst.aqi)}, ${lv[1]})` : "") +
+    (worst.aqi >= 40 ? " · над такими районами — димка" : "");
+  $("air").title = `Європейський індекс якості повітря (EAQI) по районах. ${sens ? `Датчики Sensor.Community: ${sens} з ${ok.length} районів, решта — модель CAMS (Open-Meteo).` : "Модель CAMS (Open-Meteo)."}`;
+  needs = true;
+}
+function aqTip(x, z){
+  const i = nearestDistrict(x, z), v = AQ.d[i]; if (!v) return "";
+  const l = aqLevel(v.aqi);
+  return `<div class="m">Повітря (${DISTRICTS[i].name}): <span style="color:${l[2]}">${l[1]}</span>, індекс ${Math.round(v.aqi)}` +
+    (v.pm25 != null ? `, PM2.5 ${Math.round(v.pm25)} мкг/м³` : "") + (v.src === "sensors" ? ` · ${v.n} датчиків` : " · модель") + `</div>`;
+}
+pullAir(); setInterval(pullAir, 10*60*1000);
 
 /* ---------- public transport by timetable ---------- */
 const TR = { on: true, ready: false, kinds: [], shapes: null, trips: null, last: 0, vis: [] };
