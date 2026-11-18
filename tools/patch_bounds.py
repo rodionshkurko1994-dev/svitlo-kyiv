@@ -75,7 +75,7 @@ rep('''  const cpts = META.city.map(q=>new THREE.Vector3(q[0],2,q[1]));
     const m = new THREE.ShaderMaterial({ transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
       uniforms: { uDay: common.uDay },
       vertexShader: `attribute float a; varying float vA; void main(){ vA = a; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: `uniform float uDay; varying float vA; void main(){ gl_FragColor = vec4(vec3(0.42,0.50,1.0) * vA*vA * (0.55 - 0.25*uDay), 1.0); }` });
+      fragmentShader: `uniform float uDay; varying float vA; void main(){ gl_FragColor = vec4(0.42,0.50,1.0, vA*vA * (0.55 - 0.25*uDay));   // alpha-driven: stays transparent over the sky }` });
     const curtain = new THREE.Mesh(g, m); curtain.frustumCulled = false; curtain.renderOrder = 3; scene.add(curtain);
   }''')
 open(p, "w").write(s)
