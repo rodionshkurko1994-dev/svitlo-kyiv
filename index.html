@@ -133,7 +133,6 @@ button.active{background:var(--on-soft);border-color:var(--on);color:var(--on)}
 }
 [hidden]{display:none!important}
 .labels{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:1}
-.dlabel.town{font-size:10px;opacity:0;color:#aeb8d8;letter-spacing:.06em}
 .dlabel{position:absolute;left:0;top:0;white-space:nowrap;font-family:var(--f-body);font-weight:400;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(232,236,248,.82);text-shadow:0 0 6px rgba(6,9,18,.95),0 0 2px rgba(6,9,18,.9);padding-bottom:4px;will-change:transform}
 @media (max-width:640px){.dlabel{font-size:10.5px;letter-spacing:.12em}}
 .more{border-top:0;padding-top:0}
@@ -190,10 +189,6 @@ html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-co
 .hbtn:hover{color:var(--ink);border-color:var(--line)}
 .home-now{font-size:13.5px;font-weight:600}
 .home-now.on{color:var(--on)}.home-now.off{color:var(--off-ink)}.home-now.em{color:var(--warn)}
-.sw.rg{background:repeating-linear-gradient(90deg,#ff9636 0 3px,#2a3f8f 3px 6px)}
-.home-grp{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
-.home-grp button{font:inherit;font-size:11.5px;padding:3px 7px;border-radius:7px;border:1px solid var(--line,#2a3150);background:none;color:inherit;cursor:pointer}
-.home-grp button:hover{border-color:#ff9636}
 .home-now span{font-weight:400;color:var(--muted)}
 .home-day{font-size:12px;color:var(--muted);line-height:1.45}
 .homepin{position:fixed;left:0;top:0;z-index:1;pointer-events:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
@@ -289,10 +284,9 @@ html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-co
   <details class="more" id="more">
   <summary>Деталі</summary>
   <div class="more-body">
-  <div class="legend"><span><i class="sw na"></i>немає даних про групу</span><span><i class="sw rg"></i>Київщина: умовно, за часткою груп зі світлом</span><span id="lgEm" hidden><i class="sw em"></i>екстрені відключення</span><span><i class="sw t0"></i>трамвай</span><span><i class="sw t1"></i>тролейбус</span><span><i class="sw t2"></i>автобус</span></div>
+  <div class="legend"><span><i class="sw na"></i>немає даних про групу</span><span id="lgEm" hidden><i class="sw em"></i>екстрені відключення</span><span><i class="sw t0"></i>трамвай</span><span><i class="sw t1"></i>тролейбус</span><span><i class="sw t2"></i>автобус</span></div>
   <p class="note indiv">Будинки пофарбовані за групою своєї адреси в YASNO; частина — за найближчим сусідом. Свою адресу перевіряйте на <a href="https://www.dtek-kem.com.ua/ua/shutdowns" target="_blank" rel="noopener">сайті ДТЕК</a> або в «Київ Цифровому».</p>
   <p class="note" id="fresh">Графік YASNO: завантаження…</p>
-  <p class="note" id="rpNote" hidden></p>
   <details>
     <summary>Як читати карту</summary>
     <p class="note"><strong>Це наближення.</strong> Карта показує планові графіки відключень YASNO (ДТЕК), а не фактичний стан мережі. Під час аварійних відключень графіки не діють.</p>
@@ -442,7 +436,7 @@ class MapNav extends THREE.EventDispatcher {
   constructor(camera, el){
     super();
     this.camera = camera; this.el = el; this.target = new THREE.Vector3();
-    this.minDistance = 200; this.maxDistance = 60000; this.maxTilt = 1.25; this.bound = 48000;
+    this.minDistance = 200; this.maxDistance = 60000; this.maxTilt = 1.25; this.bound = 26000;
     const off = camera.position.clone().sub(this.target);
     this.dist = off.length(); this.az = Math.atan2(off.x, off.z); this.tilt = Math.acos(Math.min(1, off.y/this.dist));
     this.pointers = new Map(); this.vel = new THREE.Vector2(); this.anim = null; this.dirty = true; this.lastTap = 0;
@@ -628,14 +622,30 @@ const uState = { value: new Array(64).fill(0.5) };
 const target = new Array(64).fill(0.5);
 const uEm = { value: new Array(64).fill(0) }, targetE = new Array(64).fill(0);
 const uFb = { value: new Array(64).fill(0) }, targetF = new Array(64).fill(0);   // emergency, last known schedule shown: muted orange
+/* city limits mask: 1 inside Kyiv, 0 outside (rasterised from the boundary in META.city) */
+const CITY_MASK = (()=>{
+  let x0=1e9, z0=1e9, x1=-1e9, z1=-1e9;
+  for (const [x,z] of META.city){ x0=Math.min(x0,x); x1=Math.max(x1,x); z0=Math.min(z0,z); z1=Math.max(z1,z); }
+  x0-=300; z0-=300; x1+=300; z1+=300;
+  const N = 2048, cv = document.createElement("canvas"); cv.width = cv.height = N;
+  const g = cv.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0,0,N,N); g.fillStyle = "#fff"; g.beginPath();
+  META.city.forEach(([x,z],i)=>{ const u=(x-x0)/(x1-x0)*N, v=(z-z0)/(z1-z0)*N; i ? g.lineTo(u,v) : g.moveTo(u,v); });
+  g.closePath(); g.fill();
+  const t = new THREE.CanvasTexture(cv); t.flipY = false; t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false;
+  return { tex: t, box: new THREE.Vector4(x0, z0, x1-x0, z1-z0) };
+})();
 const FOG = `
-  float fogF(vec3 wp){ float d = distance(wp, cameraPosition); return smoothstep(uFogNear, uFogFar, d); }`;
+  float fogF(vec3 wp){ float d = distance(wp, cameraPosition); return smoothstep(uFogNear, uFogFar, d); }
+  uniform sampler2D uMask; uniform vec4 uMaskB;
+  float inCity(vec3 wp){ vec2 uv = (wp.xz - uMaskB.xy) / uMaskB.zw; if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 0.0; return texture2D(uMask, uv).r; }
+  #define CITY_CLIP if (inCity(vW) < 0.5) discard;`;
 const common = {
   uState: uState, uEm: uEm, uFb: uFb,
   uFogNear: { value: 30000 }, uFogFar: { value: 80000 },
+  uMask: { value: CITY_MASK.tex }, uMaskB: { value: CITY_MASK.box },
   uFogCol: { value: new THREE.Color(0x060912) },
   uTime: { value: 0 },
-  uReg: { value: new THREE.Vector2(0.5, 0) }, uDay: { value: 0 }, uSnow: { value: 0 }, uWet: { value: 0 }, uSunDir: { value: new THREE.Vector3(-0.45, 0.75, 0.35).normalize() }
+  uDay: { value: 0 }, uSnow: { value: 0 }, uWet: { value: 0 }, uSunDir: { value: new THREE.Vector3(-0.45, 0.75, 0.35).normalize() }
 };
 
 const bMat = new THREE.ShaderMaterial({
@@ -644,27 +654,23 @@ const bMat = new THREE.ShaderMaterial({
   vertexShader: `
     attribute float zone;
     uniform float uState[64]; uniform float uEm[64]; uniform float uFb[64];
-    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE; varying float vF; varying float vRg;
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE; varying float vF;
     void main(){
       vec4 w = modelMatrix * vec4(position,1.0);
-      vW = w.xyz; vH = position.y; vRg = zone > 62.5 ? 1.0 : 0.0;
+      vW = w.xyz; vH = position.y;
       vS = uState[int(zone + 0.5)]; vE = uEm[int(zone + 0.5)]; vF = uFb[int(zone + 0.5)];
       vSeed = fract(sin(dot(floor(position.xz/9.0), vec2(12.9898,78.233)))*43758.5453);
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: `
-    uniform float uFogNear, uFogFar; uniform vec3 uFogCol; uniform float uDay, uSnow, uWet; uniform vec3 uSunDir; uniform vec2 uReg;
-    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE; varying float vF; varying float vRg;
+    uniform float uFogNear, uFogFar; uniform vec3 uFogCol; uniform float uDay, uSnow, uWet; uniform vec3 uSunDir;
+    varying vec3 vW; varying float vS; varying float vH; varying float vSeed; varying float vE; varying float vF;
     ${FOG}
     void main(){
+      CITY_CLIP
       vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
       if (n.y < 0.0 && abs(n.y) > 0.5) n = -n;
       float roof = step(0.6, abs(n.y));
-      float S = vS;
-      if (vRg > 0.5){   // Kyiv region: group of the house unknown, the share of lit houses follows the share of groups with power
-        float hs = fract(sin(dot(floor(vW.xz/14.0), vec2(41.3,289.1)))*15731.743);
-        S = uReg.y > 0.5 ? step(hs, uReg.x) : 0.5;
-      }
       vec3 L = normalize(mix(vec3(-0.45, 0.75, 0.35), uSunDir, uDay));   // by day the real sun lights the city
       float diff = 0.45 + 0.55 * max(dot(n, L), 0.0);
       // powered: warm amber walls with lit window bands
@@ -679,7 +685,7 @@ const bMat = new THREE.ShaderMaterial({
       vec3 offCol = mix(vec3(0.07,0.10,0.26), vec3(0.17,0.25,0.58), diff);
       offCol = mix(offCol, vec3(0.13,0.19,0.45), roof*0.6);
       vec3 naCol = mix(vec3(0.12,0.13,0.18), vec3(0.26,0.28,0.36), diff);
-      vec3 c = S >= 0.5 ? mix(naCol, onCol, (S-0.5)*2.0) : mix(offCol, naCol, S*2.0);
+      vec3 c = vS >= 0.5 ? mix(naCol, onCol, (vS-0.5)*2.0) : mix(offCol, naCol, vS*2.0);
       vec3 emCol = mix(vec3(0.10,0.08,0.15), vec3(0.30,0.25,0.40), diff);   // emergency: muted violet, dimmed
       emCol = mix(emCol, vec3(0.22,0.19,0.30)*diff, roof*0.5);
       c = mix(c, emCol, vE);
@@ -707,6 +713,7 @@ const roadMat = new THREE.ShaderMaterial({
     varying vec3 vW; varying float vS; varying float vR; varying float vE; varying float vF;
     ${FOG}
     void main(){
+      CITY_CLIP
       float major = vR < 1.5 ? 1.0 : (vR < 2.5 ? 0.6 : 0.35);
       vec3 lit = mix(vec3(1.0, 0.70, 0.36), vec3(0.55, 0.45, 0.36), vF) * (0.45 + 0.55*major) * (1.0 - 0.3*vF);
       vec3 dark = vec3(0.20, 0.27, 0.52) * (0.55 + 0.45*major);
@@ -727,6 +734,7 @@ function flatMat(hex, y, dayHex){
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
     fragmentShader: `uniform vec3 uCol, uColDay; uniform float uFogNear, uFogFar; uniform vec3 uFogCol; uniform float uDay, uSnow, uSnowable; varying vec3 vW; ${FOG}
       void main(){
+        CITY_CLIP
         vec3 c = mix(uCol, uColDay, uDay);                                         // muted daylight palette
         c = mix(c, vec3(0.50,0.54,0.62) * (0.55 + 0.45*uDay), uSnow*uSnowable*0.7); // snow cover (not on water)
         gl_FragColor = vec4(mix(c, uFogCol, fogF(vW)), 1.0); }`,
@@ -841,11 +849,26 @@ async function loadCity(){
   const roads = new THREE.LineSegments(rg, roadMat); roads.frustumCulled=false; roads.renderOrder=2; scene.add(roads);
 
   // city outline
-  const cpts = META.city.map(q=>new THREE.Vector3(q[0],2,q[1]));
-  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cpts), new THREE.LineBasicMaterial({color:0x34427a, transparent:true, opacity:.8})));
+  const cpts = META.city.map(q=>new THREE.Vector3(q[0],3,q[1]));
+  const edge = new THREE.Line(new THREE.BufferGeometry().setFromPoints(cpts), new THREE.LineBasicMaterial({color:0x9fb0ff, transparent:true, opacity:.95}));
+  edge.renderOrder = 4; scene.add(edge);
+  {
+    const H = 260, P = [], A = [];
+    for (let i = 0; i < META.city.length - 1; i++){
+      const [ax,az] = META.city[i], [bx,bz] = META.city[i+1];
+      P.push(ax,0,az, bx,0,bz, bx,H,bz,  ax,0,az, bx,H,bz, ax,H,az); A.push(1,1,0, 1,0,0);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(P,3)); g.setAttribute("a", new THREE.Float32BufferAttribute(A,1));
+    const m = new THREE.ShaderMaterial({ transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
+      uniforms: { uDay: common.uDay },
+      vertexShader: `attribute float a; varying float vA; void main(){ vA = a; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: `uniform float uDay; varying float vA; void main(){ gl_FragColor = vec4(vec3(0.42,0.50,1.0) * vA*vA * (0.55 - 0.25*uDay), 1.0); }` });
+    const curtain = new THREE.Mesh(g, m); curtain.frustumCulled = false; curtain.renderOrder = 3; scene.add(curtain);
+  }
 
   $("loader").hidden = true;
-  loadTransit(); homeRender(); envUpdate(); regionInit();
+  loadTransit(); homeRender(); envUpdate();
   console.log("city built", bCount, "buildings", (performance.now()-t0|0)+"ms", "tris", ii/3|0);
 }
 
@@ -861,7 +884,6 @@ function apply(){
     if(st.fallback && (!fbDate || st.fallback < fbDate)) fbDate = st.fallback;
     const n = zoneBuildings[g]; blind ? emc+=n : st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
   target[NZ]=0.5; targetE[NZ]=0; targetF[NZ]=0; unk += zoneBuildings[NZ];
-  if (typeof regionApply === "function") regionApply();
   $("lgEm").hidden = !emc;
   const known = on+off || 1, noSched = !(on+off);
   $("nOn").textContent = noSched ? "—" : Math.round(on/known*100)+"%";
@@ -967,8 +989,7 @@ function pick(ev){
   if(!ray.ray.intersectPlane(plane, hit)){ tip.hidden=true; return; }
   const bi = buildingAt(hit.x, hit.z);
   let html;
-  if(bi < 0){ const rt = regionTip(hit.x, hit.z); if(!rt){ tip.hidden=true; return; } html = rt; }
-  else {
+  if(bi < 0){ tip.hidden=true; return; }
   const grp = zoneArr[bi] > 60 ? 0 : zoneArr[bi], how = srcArr[bi];
   if(!grp){ html = `<div class="st">Немає даних</div><div class="m">Для цього будинку й найближчих сусідів група невідома</div>`; }
   else {
@@ -981,7 +1002,6 @@ function pick(ev){
       (st.fallback?`<div class="m em">Екстрені відключення: показано останній відомий графік (${fmtDay(st.fallback)})</div>`:"")+
       (!blind && nx?`<div class="m">${nx.to==="on"?"Увімкнуть":nx.to==="off"?"Вимкнуть":"Далі немає графіка"} о ${hhmm(nx.at%1440)}${nx.at>=1440?" завтра":""}</div>`:"")+
       `<div class="m">${src}</div>`;
-  }
   }
   tip.innerHTML = html; tip.hidden=false;
   const tx=Math.min(ev.clientX+14, innerWidth-tip.offsetWidth-8), ty=Math.min(ev.clientY+14, innerHeight-tip.offsetHeight-8);
@@ -1152,28 +1172,6 @@ function homeRender(){
   const has = !!homeSaved; $("home").hidden = !has; $("homeAdd").hidden = has;
   if (!has){ $("homePin").hidden = true; return; }
   $("homeName").textContent = homeSaved.label;
-  if (homeSaved.reg){
-    const g = homeSaved.grp, link = '<a href="https://www.dtek-krem.com.ua/ua/shutdowns" target="_blank" rel="noopener">сайті ДТЕК КРЕМ</a>';
-    const pick = `<div class="home-grp">${RP_GROUPS.map(x => `<button type="button" data-g="${x}">${x}</button>`).join("")}</div>`;
-    if (!g){
-      $("homeNow").className = "home-now"; $("homeNow").textContent = "Оберіть свою групу ДТЕК КРЕМ";
-      $("homeDay").innerHTML = `Групу за адресою можна дізнатися на ${link}.` + pick;
-    } else if (!RP.ok){
-      $("homeNow").className = "home-now"; $("homeNow").textContent = `Група ${g}: завантаження графіка…`; $("homeDay").textContent = "";
-    } else {
-      const now = absNow(), st = rpState(g, now), nx = rpNext(g, now);
-      const label = st === "on" ? "Світло є" : st === "off" ? "Світла немає" : st === "maybe" ? "Можливе відключення" : "Немає графіка";
-      const next = nx ? ` <span>· ${nx.to === "on" ? "увімкнуть" : nx.to === "off" ? "вимкнуть" : nx.to === "maybe" ? "можливе відключення" : "далі без графіка"} о ${hhmm(nx.at%1440)}${nx.at >= 1440 ? " завтра" : ""}</span>` : "";
-      $("homeNow").className = "home-now " + (st === "on" || st === "off" ? st : "");
-      $("homeNow").innerHTML = label + next;
-      const t1 = rpRanges(g, 0), t2 = rpRanges(g, 1);
-      $("homeDay").innerHTML = `Група ${g} (ДТЕК КРЕМ)` + (t1 ? ` · сьогодні без світла: ${t1}` : "") + (t2 ? ` · завтра: ${t2}` : "") +
-        ` · <a href="#" id="homeGrpChange">змінити групу</a>`;
-      const ch = $("homeGrpChange"); if (ch) ch.onclick = e => { e.preventDefault(); delete homeSaved.grp; homeStore(); homeRender(); };
-    }
-    $("homeDay").querySelectorAll("button[data-g]").forEach(b => b.onclick = () => { homeSaved.grp = b.dataset.g; homeStore(); homeRender(); });
-    return;
-  }
   const bi = homeBuilding();
   if (bi < 0){ $("homeNow").className = "home-now"; $("homeNow").textContent = "Завантаження…"; $("homeDay").textContent = ""; return; }
   const grp = zoneArr[bi] > 60 ? 0 : zoneArr[bi];
@@ -1194,10 +1192,8 @@ function homePinUpdate(){
   pin.hidden = false;
   pin.style.transform = `translate(${((_v.x+1)/2*innerWidth).toFixed(1)}px, ${((1-_v.y)/2*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
 }
-function homeStore(){ try { localStorage.setItem(HOME_KEY, JSON.stringify(homeSaved)); } catch(e) {} }
-function homeSave(bi, label){ homeSaveAt(bcx[bi], bcz[bi], label, false); }
-function homeSaveAt(x, z, label, reg){
-  homeSaved = {x: Math.round(x), z: Math.round(z), label}; if (reg) homeSaved.reg = 1;
+function homeSave(bi, label){
+  homeSaved = {x: Math.round(bcx[bi]), z: Math.round(bcz[bi]), label};
   try { localStorage.setItem(HOME_KEY, JSON.stringify(homeSaved)); } catch(e) {}
   homeRender(); homeFly(); needs = true;
 }
@@ -1214,16 +1210,8 @@ const NORM = s => s.toLowerCase().replace(/[’ʼ`]/g, "'").replace(/ё/g, "е")
 async function addrLoad(){
   if (ADDR) return ADDR;
   const d = await (await fetch("addr_index.json")).json();
-  ADDR = {streets: d.streets, place: d.streets.map(() => ""), norm: d.streets.map(NORM), a: d.a, byStreet: new Map()};
-  try{                                       // Kyiv agglomeration: rows [street, house, -1, x, z]
-    const g = await (await fetch("region/addr.json")).json(), base = ADDR.streets.length, key = new Map();
-    for (const [pi, si, hn, x, z] of g.a){
-      const k = pi + "|" + si; let id = key.get(k);
-      if (id == null){ id = ADDR.streets.length; key.set(k, id); ADDR.streets.push(g.streets[si]); ADDR.place.push(g.places[pi] || ""); ADDR.norm.push(NORM(g.streets[si] + " " + (g.places[pi] || ""))); }
-      ADDR.a.push([id, hn, -1, x, z]);
-    }
-  }catch(e){}
-  for (const r of ADDR.a){ let l = ADDR.byStreet.get(r[0]); if (!l){ l = []; ADDR.byStreet.set(r[0], l); } l.push(r); }
+  ADDR = {streets: d.streets, norm: d.streets.map(NORM), a: d.a, byStreet: new Map()};
+  for (const r of d.a){ let l = ADDR.byStreet.get(r[0]); if (!l){ l = []; ADDR.byStreet.set(r[0], l); } l.push(r); }
   return ADDR;
 }
 function houseKey(h){ return h.toUpperCase().replace(/\s|-/g, "").replace(/[A]/g, "А").replace(/[B]/g, "В").replace(/[E]/g, "Е"); }
@@ -1256,11 +1244,10 @@ $("homeQ").addEventListener("input", async () => {
   if (q.length < 2){ ul.innerHTML = ""; return; }
   try { await addrLoad(); } catch(e) { return; }
   const res = addrSearch(q);
-  ul.innerHTML = res.length ? res.map((r, i) => `<li role="option" tabindex="0" data-i="${i}">${ADDR.streets[r[0]].replace(/</g,"&lt;")}, <b>${r[1].replace(/</g,"&lt;")}</b>${ADDR.place[r[0]] ? ` <small>· ${ADDR.place[r[0]].replace(/</g,"&lt;")}</small>` : ""}</li>`).join("")
+  ul.innerHTML = res.length ? res.map((r, i) => `<li role="option" tabindex="0" data-i="${i}">${ADDR.streets[r[0]].replace(/</g,"&lt;")}, <b>${r[1].replace(/</g,"&lt;")}</b></li>`).join("")
     : '<li aria-disabled="true"><small>Нічого не знайдено. Спробуйте інакше або оберіть будинок на карті.</small></li>';
   ul.querySelectorAll("li[data-i]").forEach(li => {
-    const choose = () => { const r = res[+li.dataset.i], pl = ADDR.place[r[0]]; sheetClose();
-      if (r[2] >= 0) homeSave(r[2], `${ADDR.streets[r[0]]}, ${r[1]}`); else homeSaveAt(r[3], r[4], `${pl ? pl + ", " : ""}${ADDR.streets[r[0]]}, ${r[1]}`, true); };
+    const choose = () => { const r = res[+li.dataset.i]; sheetClose(); homeSave(r[2], `${ADDR.streets[r[0]]}, ${r[1]}`); };
     li.onclick = choose; li.onkeydown = e => { if (e.key === "Enter") choose(); };
   });
 });
@@ -1270,189 +1257,11 @@ $("homeDel").onclick = () => { homeSaved = null; try { localStorage.removeItem(H
 function homePickAt(ev){                   // called from the map tap while choosing
   const r = canvas.getBoundingClientRect(); mouse.set(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
   ray.setFromCamera(mouse, camera); if (!ray.ray.intersectPlane(plane, hit)) return;
-  const bi = buildingAt(hit.x, hit.z), rb = bi < 0 ? regionAt(hit.x, hit.z) : -1; if (bi < 0 && rb < 0) return;
+  const bi = buildingAt(hit.x, hit.z); if (bi < 0) return;
   homePicking = false; $("pickBar").hidden = true; tip.hidden = true;
-  if (bi >= 0) homeSave(bi, "Мій будинок на карті");
-  else { const t = regionTown(RG.bx[rb], RG.bz[rb]); homeSaveAt(RG.bx[rb], RG.bz[rb], (t ? t + ", " : "") + "мій будинок на карті", true); }
+  homeSave(bi, "Мій будинок на карті");
 }
 setInterval(homeRender, 30*1000);
-
-/* ---------- Kyiv region schedules (DTEK KREM via the open outage-data-ua dataset) ---------- */
-var RP = { days: {}, upd: "", ok: false };
-var RP_GROUPS = ["1.1","1.2","2.1","2.2","3.1","3.2","4.1","4.2","5.1","5.2","6.1","6.2"];
-async function regionPower(){
-  try{
-    const r = await fetch("https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/data/kyiv-region.json?t=" + Math.floor(Date.now()/300000), {cache:"no-store"});
-    if (!r.ok) return;
-    const d = await r.json(), f = d && d.fact; if (!f || !f.data) return;
-    const days = {};
-    for (const ts in f.data){ const date = kyivParts(new Date(+ts*1000 + 3600e3)).date; days[date] = f.data[ts]; }
-    RP.days = days; RP.upd = f.update || ""; RP.ok = true;
-    apply(); if (typeof homeRender === "function") homeRender();
-  }catch(e){}
-}
-function rpState(g, absMin){                     // "on" | "off" | "maybe" | null for group "1.1" at minutes from baseDate
-  const date = addDays(baseDate, Math.floor(absMin/1440)), day = RP.days[date]; if (!day) return null;
-  const row = day["GPV" + g]; if (!row) return null;
-  const m = ((absMin % 1440) + 1440) % 1440, v = row[String(Math.floor(m/60) + 1)], first = m % 60 < 30;
-  if (v === "yes") return "on"; if (v === "no") return "off"; if (v === "maybe") return "maybe";
-  if (v === "first") return first ? "off" : "on"; if (v === "second") return first ? "on" : "off";
-  if (v === "mfirst") return first ? "maybe" : "on"; if (v === "msecond") return first ? "on" : "maybe";
-  return null;
-}
-function rpShare(absMin){
-  let on = 0, n = 0;
-  for (const g of RP_GROUPS){ const st = rpState(g, absMin); if (st === "on"){ on++; n++; } else if (st === "off"){ n++; } else if (st === "maybe"){ on += 0.5; n++; } }
-  return n ? { on, n, share: on/n } : null;
-}
-function rpNext(g, absMin){
-  const cur = rpState(g, absMin);
-  for (let t = Math.floor(absMin/30)*30 + 30; t < 2880; t += 30){ const st = rpState(g, t); if (st !== cur) return { at: t, to: st }; }
-  return null;
-}
-function rpRanges(g, dayOff){
-  const out = []; let has = false;
-  for (let t = dayOff*1440; t < dayOff*1440 + 1440; t += 30){
-    const st = rpState(g, t); if (st) has = true;
-    if (st === "off"){ const a = t % 1440; if (out.length && out[out.length-1][1] === a) out[out.length-1][1] = a + 30; else out.push([a, a + 30]); }
-  }
-  if (!has) return null;
-  return out.length ? out.map(([a, b]) => `${hhmm(a)}–${b >= 1440 ? "24:00" : hhmm(b)}`).join(", ") : "без відключень";
-}
-function regionApply(){
-  if (typeof RP === "undefined" || !RP) return;   // zone 63 = region buildings and roads
-  const sh = RP.ok ? rpShare(tMin) : null;
-  target[63] = sh ? sh.share : 0.5; targetE[63] = 0; targetF[63] = 0;
-  common.uReg.value.set(sh ? sh.share : 0.5, sh ? 1 : 0); needs = true;
-  const el = $("rpNote"); if (!el) return;
-  el.hidden = !RP.ok;
-  if (RP.ok) el.innerHTML = sh ? `Київщина (ДТЕК КРЕМ): світло ${follow ? "зараз" : "о " + hhmm(tMin%1440)} у <strong>${sh.on % 1 ? sh.on.toFixed(1) : sh.on} з ${sh.n}</strong> груп. Графік оновлено ${RP.upd}.`
-    : `Київщина (ДТЕК КРЕМ): графіка на цей день ще немає.`;
-}
-regionPower(); setInterval(regionPower, 5*60*1000);
-
-/* ---------- Kyiv agglomeration (OpenStreetMap) ---------- */
-const RG = { man: null, tiles: [], loading: 0, cell: new Map(), bx: [], bz: [], towns: [], els: [] };
-function rgParse(buf){
-  const n = new DataView(buf).getUint32(0, true), H = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, n))), b0 = 4 + n;
-  return { H, v: (k, T) => { const [o, l] = H.arrays[k]; return new T(buf, b0 + o, l / T.BYTES_PER_ELEMENT); } };
-}
-function rgLines(len, co, scale, ox, oz, rankArr, rankConst){
-  let segs = 0; for (let i = 0; i < len.length; i++) segs += Math.max(0, len[i] - 1);
-  const rp = new Float32Array(segs*6), rz = new Uint8Array(segs*2).fill(63), rk = new Uint8Array(segs*2);
-  let p = 0, q = 0;
-  for (let i = 0; i < len.length; i++){
-    const n = len[i], r = rankArr ? rankArr[i] : rankConst;
-    for (let k = 0; k < n - 1; k++){
-      rp.set([co[(p+k)*2]*scale + ox, 1.5, co[(p+k)*2+1]*scale + oz, co[(p+k+1)*2]*scale + ox, 1.5, co[(p+k+1)*2+1]*scale + oz], q*6);
-      rk[q*2] = rk[q*2+1] = r; q++;
-    }
-    p += n;
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.BufferAttribute(rp, 3));
-  g.setAttribute("zone", new THREE.BufferAttribute(rz, 1));
-  g.setAttribute("rank", new THREE.BufferAttribute(rk, 1));
-  const m = new THREE.LineSegments(g, roadMat); m.frustumCulled = false; m.renderOrder = 2; scene.add(m); return m;
-}
-async function regionInit(){
-  try{
-    RG.man = await (await fetch("region/manifest.json")).json();
-    RG.tiles = RG.man.tiles.map(t => Object.assign({ state: 0 }, t));
-    RG.towns = RG.man.towns.filter(t => t.k === "city" || t.k === "town" || t.p >= 5000);
-    RG.els = RG.towns.map(t => { const el = document.createElement("div"); el.className = "dlabel town"; el.textContent = t.n; $("labels").appendChild(el); return el; });
-    const { v } = rgParse(await (await fetch("region/base.bin")).arrayBuffer());
-    const sc = a => { const f = new Float32Array(a.length); for (let i = 0; i < a.length; i++) f[i] = a[i]*2; return f; };
-    triMesh(sc(v("ground", Int16Array)), 0x0c1122, 0, 0x454a54);
-    triMesh(sc(v("green", Int16Array)), 0x0c1a17, 0.3, 0x3b483f);
-    triMesh(sc(v("water", Int16Array)), 0x0a1b38, 0.6, 0x34465f).material.uniforms.uSnowable.value = 0;
-    rgLines(v("roadLen", Uint16Array), v("roadCoords", Int16Array), 2, 0, 0, v("roadRank", Uint8Array));
-    needs = true; setInterval(regionTick, 400); regionTick();
-    if (homeSaved && homeSaved.reg) homeRender();
-  }catch(e){ console.warn("region", e); }
-}
-function regionTick(){
-  if (!RG.man || RG.loading >= 2) return;
-  const d = controls.dist; if (d > 24000) return;
-  const R = Math.min(26000, d*0.9 + 7000), tx = controls.target.x, tz = controls.target.z;
-  let best = null, bd = R*R;
-  for (const t of RG.tiles){ if (t.state) continue; const e = (t.x-tx)**2 + (t.z-tz)**2; if (e < bd){ bd = e; best = t; } }
-  if (best) regionTile(best);
-}
-async function regionTile(t){
-  t.state = 1; RG.loading++;
-  try{
-    const { H, v } = rgParse(await (await fetch("region/" + t.f)).arrayBuffer());
-    const [ox, oz] = H.origin, height = v("height", Uint16Array), rc = v("ringCount", Uint8Array), rl = v("ringLen", Uint16Array), co = v("coords", Int16Array);
-    const n = height.length;
-    let V = 0, I = 0, ri = 0;
-    for (let b = 0; b < n; b++){ for (let r = 0; r < rc[b]; r++){ const k = rl[ri+r]; V += k*2; I += k*9; } ri += rc[b]; }
-    const pos = new Float32Array(V*3), zat = new Uint8Array(V).fill(63), idx = new Uint32Array(I);
-    let vv = 0, ii = 0, pi = 0; ri = 0;
-    for (let b = 0; b < n; b++){
-      const h = height[b]/10, contour = [], holes = [], starts = []; let sx = 0, sz = 0, sn = 0;
-      for (let r = 0; r < rc[b]; r++){
-        const k = rl[ri+r], ring = [], st = vv;
-        for (let j = 0; j < k; j++){
-          const x = co[pi*2] + ox, y = co[pi*2+1] + oz; pi++;
-          pos.set([x, 0, y, x, h, y], vv*3); ring.push(new THREE.Vector2(x, y)); vv += 2;
-          if (r === 0){ sx += x; sz += y; sn++; }
-        }
-        for (let j = 0; j < k; j++){ const a = st + j*2, c = st + ((j+1)%k)*2; idx.set([a, c, c+1, a, c+1, a+1], ii); ii += 6; }
-        if (r === 0) contour.push(...ring); else holes.push(ring);
-        starts.push(st);
-      }
-      ri += rc[b];
-      let faces; try{ faces = THREE.ShapeUtils.triangulateShape(contour, holes); }catch(e){ faces = []; }
-      const map = []; starts.forEach((st, r) => { const k = r === 0 ? contour.length : holes[r-1].length; for (let j = 0; j < k; j++) map.push(st + j*2 + 1); });
-      for (const f of faces){ idx[ii++] = map[f[0]]; idx[ii++] = map[f[1]]; idx[ii++] = map[f[2]]; }
-      const cx = sx/sn, cz = sz/sn, key = Math.floor(cx/200)*100000 + Math.floor(cz/200), id = RG.bx.length;
-      RG.bx.push(cx); RG.bz.push(cz); let l = RG.cell.get(key); if (!l){ l = []; RG.cell.set(key, l); } l.push(id);
-      if ((b & 2047) === 2047) await new Promise(r => setTimeout(r, 0));
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    g.setAttribute("zone", new THREE.BufferAttribute(zat, 1));
-    g.setIndex(new THREE.BufferAttribute(idx.subarray(0, ii), 1));
-    const m = new THREE.Mesh(g, bMat); m.frustumCulled = false; scene.add(m);
-    rgLines(v("streetLen", Uint16Array), v("streetCoords", Int16Array), 1, ox, oz, null, 3);
-    t.state = 2; needs = true;
-    if (homeSaved && homeSaved.reg) homeRender();
-  }catch(e){ t.state = 0; console.warn("region tile", t.f, e); }
-  RG.loading--;
-}
-function regionAt(x, z){
-  const cx = Math.floor(x/200), cz = Math.floor(z/200); let best = -1, bd = 45*45;
-  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++){
-    const l = RG.cell.get((cx+dx)*100000 + (cz+dz)); if (!l) continue;
-    for (const i of l){ const ex = RG.bx[i]-x, ez = RG.bz[i]-z, d = ex*ex + ez*ez; if (d < bd){ bd = d; best = i; } }
-  }
-  return best;
-}
-function regionTown(x, z){
-  let best = "", bd = 6000*6000;
-  if (RG.man) for (const t of RG.man.towns){ const d = (t.x-x)**2 + (t.z-z)**2; if (d < bd){ bd = d; best = t.n; } }
-  return best;
-}
-function regionTip(x, z){
-  if (regionAt(x, z) < 0) return null;
-  const town = regionTown(x, z), sh = RP.ok ? rpShare(tMin) : null;
-  return `<div class="st">Київщина</div>` + (town ? `<div>${town.replace(/</g,"&lt;")}</div>` : "") +
-    (sh ? `<div class="m">Світло у ${sh.on % 1 ? sh.on.toFixed(1) : sh.on} з ${sh.n} груп ДТЕК КРЕМ</div>` : `<div class="m">Графік ДТЕК КРЕМ на цей час ще не отримано</div>`) +
-    `<div class="m">Група цього будинку невідома, тому колір умовний: частка помаранчевих будинків в області дорівнює частці груп зі світлом. Додайте свою адресу в «Мій дім» і вкажіть групу, щоб бачити точний графік</div>`;
-}
-function regionLabels(){
-  const w = innerWidth, h = innerHeight;
-  RG.towns.forEach((t, i) => {
-    const el = RG.els[i];
-    _v.set(t.x, 420, t.z).project(camera);
-    if (_v.z > 1 || _v.z < -1 || Math.abs(_v.x) > 1.1 || Math.abs(_v.y) > 1.1){ el.style.opacity = "0"; return; }
-    const dist = camera.position.distanceTo(_v.set(t.x, 420, t.z)), far = t.k === "city" || t.p >= 30000 ? 80000 : 42000;
-    el.style.opacity = Math.max(0, Math.min(1, (far - dist)/18000)).toFixed(2);
-    _v.project(camera);
-    el.style.transform = `translate(${((_v.x+1)/2*w).toFixed(1)}px, ${((1-_v.y)/2*h).toFixed(1)}px) translate(-50%,-100%)`;
-  });
-}
 
 /* ---------- district labels floating above the map ---------- */
 const LABEL_H = 650;
@@ -1467,7 +1276,6 @@ const _v = new THREE.Vector3();
 function updateLabels(){
   const w=innerWidth, h=innerHeight;
   if (typeof homePinUpdate === "function") homePinUpdate();
-  if (RG.els.length) regionLabels();
   DISTRICTS.forEach((dd,i)=>{
     _v.set(dd.x, LABEL_H, dd.z).project(camera);
     const el=labelEls[i];
@@ -1533,6 +1341,7 @@ function trMaterial(hex){
       uniform vec3 uBody; uniform float uFogNear, uFogFar; uniform vec3 uFogCol;
       varying float vP; varying vec3 vN; varying vec3 vW; ${FOG}
       void main(){
+        CITY_CLIP
         float diff = 0.55 + 0.45*max(dot(normalize(vN), normalize(vec3(-0.35,0.85,0.4))), 0.0);
         vec3 c = vP < 0.5 ? uBody : (vP < 1.5 ? vec3(0.10,0.13,0.24) : uBody*0.7);
         if (vN.y > 0.5 && vP < 0.5) c = mix(c, vec3(1.0), 0.12);     // light roof
