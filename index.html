@@ -190,6 +190,10 @@ html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-co
 .hbtn:hover{color:var(--ink);border-color:var(--line)}
 .home-now{font-size:13.5px;font-weight:600}
 .home-now.on{color:var(--on)}.home-now.off{color:var(--off-ink)}.home-now.em{color:var(--warn)}
+.sw.rg{background:linear-gradient(90deg,#2a3f8f,#5a5d70,#ff9636)}
+.home-grp{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
+.home-grp button{font:inherit;font-size:11.5px;padding:3px 7px;border-radius:7px;border:1px solid var(--line,#2a3150);background:none;color:inherit;cursor:pointer}
+.home-grp button:hover{border-color:#ff9636}
 .home-now span{font-weight:400;color:var(--muted)}
 .home-day{font-size:12px;color:var(--muted);line-height:1.45}
 .homepin{position:fixed;left:0;top:0;z-index:1;pointer-events:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
@@ -285,9 +289,10 @@ html.tg .compass{top:calc(16px + var(--tg-safe-area-inset-top,0px) + var(--tg-co
   <details class="more" id="more">
   <summary>Деталі</summary>
   <div class="more-body">
-  <div class="legend"><span><i class="sw na"></i>немає даних про групу</span><span id="lgEm" hidden><i class="sw em"></i>екстрені відключення</span><span><i class="sw t0"></i>трамвай</span><span><i class="sw t1"></i>тролейбус</span><span><i class="sw t2"></i>автобус</span></div>
+  <div class="legend"><span><i class="sw na"></i>немає даних про групу</span><span><i class="sw rg"></i>Київщина: частка груп зі світлом</span><span id="lgEm" hidden><i class="sw em"></i>екстрені відключення</span><span><i class="sw t0"></i>трамвай</span><span><i class="sw t1"></i>тролейбус</span><span><i class="sw t2"></i>автобус</span></div>
   <p class="note indiv">Будинки пофарбовані за групою своєї адреси в YASNO; частина — за найближчим сусідом. Свою адресу перевіряйте на <a href="https://www.dtek-kem.com.ua/ua/shutdowns" target="_blank" rel="noopener">сайті ДТЕК</a> або в «Київ Цифровому».</p>
   <p class="note" id="fresh">Графік YASNO: завантаження…</p>
+  <p class="note" id="rpNote" hidden></p>
   <details>
     <summary>Як читати карту</summary>
     <p class="note"><strong>Це наближення.</strong> Карта показує планові графіки відключень YASNO (ДТЕК), а не фактичний стан мережі. Під час аварійних відключень графіки не діють.</p>
@@ -851,6 +856,7 @@ function apply(){
     if(st.fallback && (!fbDate || st.fallback < fbDate)) fbDate = st.fallback;
     const n = zoneBuildings[g]; blind ? emc+=n : st.state==="on"?on+=n:st.state==="off"?off+=n:unk+=n; }
   target[NZ]=0.5; targetE[NZ]=0; targetF[NZ]=0; unk += zoneBuildings[NZ];
+  if (typeof regionApply === "function") regionApply();
   $("lgEm").hidden = !emc;
   const known = on+off || 1, noSched = !(on+off);
   $("nOn").textContent = noSched ? "—" : Math.round(on/known*100)+"%";
@@ -1142,8 +1148,25 @@ function homeRender(){
   if (!has){ $("homePin").hidden = true; return; }
   $("homeName").textContent = homeSaved.label;
   if (homeSaved.reg){
-    $("homeNow").className = "home-now"; $("homeNow").textContent = "Київська область: графіків поки немає";
-    $("homeDay").innerHTML = 'ДТЕК не публікує графіки області відкрито. Перевірте на <a href="https://www.dtek-krem.com.ua/ua/shutdowns" target="_blank" rel="noopener">сайті ДТЕК КРЕМ</a>';
+    const g = homeSaved.grp, link = '<a href="https://www.dtek-krem.com.ua/ua/shutdowns" target="_blank" rel="noopener">сайті ДТЕК КРЕМ</a>';
+    const pick = `<div class="home-grp">${RP_GROUPS.map(x => `<button type="button" data-g="${x}">${x}</button>`).join("")}</div>`;
+    if (!g){
+      $("homeNow").className = "home-now"; $("homeNow").textContent = "Оберіть свою групу ДТЕК КРЕМ";
+      $("homeDay").innerHTML = `Групу за адресою можна дізнатися на ${link}.` + pick;
+    } else if (!RP.ok){
+      $("homeNow").className = "home-now"; $("homeNow").textContent = `Група ${g}: завантаження графіка…`; $("homeDay").textContent = "";
+    } else {
+      const now = absNow(), st = rpState(g, now), nx = rpNext(g, now);
+      const label = st === "on" ? "Світло є" : st === "off" ? "Світла немає" : st === "maybe" ? "Можливе відключення" : "Немає графіка";
+      const next = nx ? ` <span>· ${nx.to === "on" ? "увімкнуть" : nx.to === "off" ? "вимкнуть" : nx.to === "maybe" ? "можливе відключення" : "далі без графіка"} о ${hhmm(nx.at%1440)}${nx.at >= 1440 ? " завтра" : ""}</span>` : "";
+      $("homeNow").className = "home-now " + (st === "on" || st === "off" ? st : "");
+      $("homeNow").innerHTML = label + next;
+      const t1 = rpRanges(g, 0), t2 = rpRanges(g, 1);
+      $("homeDay").innerHTML = `Група ${g} (ДТЕК КРЕМ)` + (t1 ? ` · сьогодні без світла: ${t1}` : "") + (t2 ? ` · завтра: ${t2}` : "") +
+        ` · <a href="#" id="homeGrpChange">змінити групу</a>`;
+      const ch = $("homeGrpChange"); if (ch) ch.onclick = e => { e.preventDefault(); delete homeSaved.grp; homeStore(); homeRender(); };
+    }
+    $("homeDay").querySelectorAll("button[data-g]").forEach(b => b.onclick = () => { homeSaved.grp = b.dataset.g; homeStore(); homeRender(); });
     return;
   }
   const bi = homeBuilding();
@@ -1166,6 +1189,7 @@ function homePinUpdate(){
   pin.hidden = false;
   pin.style.transform = `translate(${((_v.x+1)/2*innerWidth).toFixed(1)}px, ${((1-_v.y)/2*innerHeight).toFixed(1)}px) translate(-50%,-100%)`;
 }
+function homeStore(){ try { localStorage.setItem(HOME_KEY, JSON.stringify(homeSaved)); } catch(e) {} }
 function homeSave(bi, label){ homeSaveAt(bcx[bi], bcz[bi], label, false); }
 function homeSaveAt(x, z, label, reg){
   homeSaved = {x: Math.round(x), z: Math.round(z), label}; if (reg) homeSaved.reg = 1;
@@ -1248,7 +1272,60 @@ function homePickAt(ev){                   // called from the map tap while choo
 }
 setInterval(homeRender, 30*1000);
 
-/* ---------- Kyiv agglomeration (OpenStreetMap, no power data) ---------- */
+/* ---------- Kyiv region schedules (DTEK KREM via the open outage-data-ua dataset) ---------- */
+var RP = { days: {}, upd: "", ok: false };
+var RP_GROUPS = ["1.1","1.2","2.1","2.2","3.1","3.2","4.1","4.2","5.1","5.2","6.1","6.2"];
+async function regionPower(){
+  try{
+    const r = await fetch("https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/data/kyiv-region.json?t=" + Math.floor(Date.now()/300000), {cache:"no-store"});
+    if (!r.ok) return;
+    const d = await r.json(), f = d && d.fact; if (!f || !f.data) return;
+    const days = {};
+    for (const ts in f.data){ const date = kyivParts(new Date(+ts*1000 + 3600e3)).date; days[date] = f.data[ts]; }
+    RP.days = days; RP.upd = f.update || ""; RP.ok = true;
+    apply(); if (typeof homeRender === "function") homeRender();
+  }catch(e){}
+}
+function rpState(g, absMin){                     // "on" | "off" | "maybe" | null for group "1.1" at minutes from baseDate
+  const date = addDays(baseDate, Math.floor(absMin/1440)), day = RP.days[date]; if (!day) return null;
+  const row = day["GPV" + g]; if (!row) return null;
+  const m = ((absMin % 1440) + 1440) % 1440, v = row[String(Math.floor(m/60) + 1)], first = m % 60 < 30;
+  if (v === "yes") return "on"; if (v === "no") return "off"; if (v === "maybe") return "maybe";
+  if (v === "first") return first ? "off" : "on"; if (v === "second") return first ? "on" : "off";
+  if (v === "mfirst") return first ? "maybe" : "on"; if (v === "msecond") return first ? "on" : "maybe";
+  return null;
+}
+function rpShare(absMin){
+  let on = 0, n = 0;
+  for (const g of RP_GROUPS){ const st = rpState(g, absMin); if (st === "on"){ on++; n++; } else if (st === "off"){ n++; } else if (st === "maybe"){ on += 0.5; n++; } }
+  return n ? { on, n, share: on/n } : null;
+}
+function rpNext(g, absMin){
+  const cur = rpState(g, absMin);
+  for (let t = Math.floor(absMin/30)*30 + 30; t < 2880; t += 30){ const st = rpState(g, t); if (st !== cur) return { at: t, to: st }; }
+  return null;
+}
+function rpRanges(g, dayOff){
+  const out = []; let has = false;
+  for (let t = dayOff*1440; t < dayOff*1440 + 1440; t += 30){
+    const st = rpState(g, t); if (st) has = true;
+    if (st === "off"){ const a = t % 1440; if (out.length && out[out.length-1][1] === a) out[out.length-1][1] = a + 30; else out.push([a, a + 30]); }
+  }
+  if (!has) return null;
+  return out.length ? out.map(([a, b]) => `${hhmm(a)}–${b >= 1440 ? "24:00" : hhmm(b)}`).join(", ") : "без відключень";
+}
+function regionApply(){
+  if (typeof RP === "undefined" || !RP) return;   // zone 63 = region buildings and roads
+  const sh = RP.ok ? rpShare(tMin) : null;
+  target[63] = sh ? sh.share : 0.5; targetE[63] = 0; targetF[63] = 0;
+  const el = $("rpNote"); if (!el) return;
+  el.hidden = !RP.ok;
+  if (RP.ok) el.innerHTML = sh ? `Київщина (ДТЕК КРЕМ): світло ${follow ? "зараз" : "о " + hhmm(tMin%1440)} у <strong>${sh.on % 1 ? sh.on.toFixed(1) : sh.on} з ${sh.n}</strong> груп. Графік оновлено ${RP.upd}.`
+    : `Київщина (ДТЕК КРЕМ): графіка на цей день ще немає.`;
+}
+regionPower(); setInterval(regionPower, 5*60*1000);
+
+/* ---------- Kyiv agglomeration (OpenStreetMap) ---------- */
 const RG = { man: null, tiles: [], loading: 0, cell: new Map(), bx: [], bz: [], towns: [], els: [] };
 function rgParse(buf){
   const n = new DataView(buf).getUint32(0, true), H = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, n))), b0 = 4 + n;
@@ -1256,7 +1333,7 @@ function rgParse(buf){
 }
 function rgLines(len, co, scale, ox, oz, rankArr, rankConst){
   let segs = 0; for (let i = 0; i < len.length; i++) segs += Math.max(0, len[i] - 1);
-  const rp = new Float32Array(segs*6), rz = new Uint8Array(segs*2), rk = new Uint8Array(segs*2);
+  const rp = new Float32Array(segs*6), rz = new Uint8Array(segs*2).fill(63), rk = new Uint8Array(segs*2);
   let p = 0, q = 0;
   for (let i = 0; i < len.length; i++){
     const n = len[i], r = rankArr ? rankArr[i] : rankConst;
@@ -1304,7 +1381,7 @@ async function regionTile(t){
     const n = height.length;
     let V = 0, I = 0, ri = 0;
     for (let b = 0; b < n; b++){ for (let r = 0; r < rc[b]; r++){ const k = rl[ri+r]; V += k*2; I += k*9; } ri += rc[b]; }
-    const pos = new Float32Array(V*3), zat = new Uint8Array(V), idx = new Uint32Array(I);
+    const pos = new Float32Array(V*3), zat = new Uint8Array(V).fill(63), idx = new Uint32Array(I);
     let vv = 0, ii = 0, pi = 0; ri = 0;
     for (let b = 0; b < n; b++){
       const h = height[b]/10, contour = [], holes = [], starts = []; let sx = 0, sz = 0, sn = 0;
@@ -1353,9 +1430,10 @@ function regionTown(x, z){
 }
 function regionTip(x, z){
   if (regionAt(x, z) < 0) return null;
-  const town = regionTown(x, z);
-  return `<div class="st">Київська область</div>` + (town ? `<div>${town.replace(/</g,"&lt;")}</div>` : "") +
-    `<div class="m">Графіків відключень для області на карті поки немає: ДТЕК Київські регіональні електромережі не публікує їх у відкритому доступі</div>`;
+  const town = regionTown(x, z), sh = RP.ok ? rpShare(tMin) : null;
+  return `<div class="st">Київщина</div>` + (town ? `<div>${town.replace(/</g,"&lt;")}</div>` : "") +
+    (sh ? `<div class="m">Світло у ${sh.on % 1 ? sh.on.toFixed(1) : sh.on} з ${sh.n} груп ДТЕК КРЕМ</div>` : `<div class="m">Графік ДТЕК КРЕМ на цей час ще не отримано</div>`) +
+    `<div class="m">Група цього будинку невідома: колір показує частку груп зі світлом. Додайте свою адресу в «Мій дім» і вкажіть групу, щоб бачити точний графік</div>`;
 }
 function regionLabels(){
   const w = innerWidth, h = innerHeight;
